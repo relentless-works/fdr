@@ -1,7 +1,4 @@
+/// Declarative (state-driven) routing for Flutter
 library fdr;
 
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
+export './src/declarative_navigator.dart';
