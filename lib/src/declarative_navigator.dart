@@ -1,5 +1,7 @@
 // ignore_for_file: unused_element
 
+import 'package:fdr/src/pages/cupertino_page.dart';
+import 'package:fdr/src/pages/material_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -69,17 +71,8 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
 
     return Navigator(
       pages: pageNavigatables.map((n) => n.page).toList(),
-      onPopPage: (route, result) {
-        debugPrint('onPopPage: $route $result');
-
-        if (pageNavigatables.last.onPop != null) {
-          pageNavigatables.last.onPop!();
-
-          // pop will not yet be completed on edge-swipe (as the animation still runs), so we can not yet return `true`
-          return false;
-        }
-
-        return false;
+      onDidRemovePage: (page) {
+        debugPrint('onPopPage: $page');
       },
     );
   }
@@ -130,16 +123,20 @@ class __ManagingDeclarativeNavigatorState
 
 sealed class DeclarativeNavigatable {}
 
+typedef PageBuilder = Page Function(VoidCallback? onPop);
+
 class DeclarativeNavigatablePage implements DeclarativeNavigatable {
   DeclarativeNavigatablePage({
-    required this.page,
-    this.onPop,
-  });
+    required PageBuilder builder,
+    required this.onPop,
+  })  : _builder = builder,
+        page = builder(onPop);
+
+  final PageBuilder _builder;
 
   final Page page;
 
-  // TODO(tp): Make final, and then provide better creators
-  VoidCallback? onPop;
+  final VoidCallback? onPop;
 }
 
 extension Poppable on NavigatableSource {
@@ -170,7 +167,7 @@ class _PoppableNavigatableSourceWrapper implements NavigatableSource {
 
     _pages.value = [
       DeclarativeNavigatablePage(
-        page: pages.first.page,
+        builder: pages.first._builder,
         // TODO(tp): What about the underlying onpop, if any? (though unlikely makes sense)
         onPop: onPop,
       ),
@@ -184,19 +181,47 @@ class _PoppableNavigatableSourceWrapper implements NavigatableSource {
   }
 }
 
-extension DeclarativeNavigatableFromPage on Page {
-  DeclarativeNavigatablePage get navigatable {
-    return DeclarativeNavigatablePage(page: this);
-  }
-}
-
 extension DeclarativeNavigatableFromWidget on Widget {
-  DeclarativeNavigatablePage get page {
-    return CupertinoPage(child: this).navigatable;
+  DeclarativeNavigatablePage page({
+    /// Provide `null` if the page should not be poppable
+    required VoidCallback? onPop,
+  }) {
+    return DeclarativeNavigatablePage(
+      builder: (onPop) => defaultTargetPlatform == TargetPlatform.android
+          ? FDRMaterialPage(
+              child: this,
+              canPop: onPop != null,
+              onPopInvoked: (didPop, _) {
+                if (didPop) {
+                  // When the route was popped, it had to be pop-able (`canPop = true`),
+                  // such that there is a callback to update the state to reflect its absence
+                  onPop!();
+                }
+              },
+            )
+          : FDRCupertinoPage(
+              child: this,
+              canPop: onPop != null,
+              onPopInvoked: (didPop, _) {
+                if (didPop) {
+                  // When the route was popped, it had to be pop-able (`canPop = true`),
+                  // such that there is a callback to update the state to reflect its absence
+                  onPop!();
+                }
+              },
+            ),
+      onPop: onPop,
+    );
   }
 
-  DeclarativeNavigatablePage get popup {
-    return _CupertinoModalPopupPage(child: this).navigatable;
+  DeclarativeNavigatablePage popup({
+    /// Provide `null` if the model should not be poppable
+    required VoidCallback? onPop,
+  }) {
+    return DeclarativeNavigatablePage(
+      builder: (onPop) => _CupertinoModalPopupPage(child: this),
+      onPop: onPop,
+    );
   }
 }
 
@@ -208,6 +233,7 @@ class _CupertinoModalPopupPage extends Page {
     super.restorationId,
     required this.child,
   });
+
   final Widget child;
 
   @override

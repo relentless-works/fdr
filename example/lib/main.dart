@@ -51,6 +51,7 @@ class ExampleSelectionNavigator
       ExampleSelectionPage(
         examples: {
           'List Detail': () => ListDetailNavigator(),
+          'Dynamic back behavior': () => DynamicPopNavigator(),
         },
         // TODO(tp): Dispose previous if needed
         onExampleSelect: (exampleFactory) {
@@ -62,7 +63,7 @@ class ExampleSelectionNavigator
 
           this.state = exampleFactory();
         },
-      ).page,
+      ).page(onPop: null),
       if (state != null)
         if (state is NavigatableSource)
           // Use pipe type trick for type preservation? (not extension, but rather on class)
@@ -127,6 +128,89 @@ class ExampleSelectionPage extends StatelessWidget {
   }
 }
 
+class DynamicPopNavigator extends MappedNavigatableSource<
+    (
+      bool /* shows child */,
+      bool /* can pop */,
+    )> {
+  DynamicPopNavigator() : super(initialState: (true, false));
+
+  @override
+  List<DeclarativeNavigatable> build((bool, bool) state) {
+    final canPop = state.$2;
+
+    return [
+      const Placeholder().page(onPop: null),
+      if (state.$1)
+        PopToggle(
+          value: canPop,
+          onChange: (v) => this.state = (true, v),
+        ).page(onPop: canPop ? () => this.state = (false, false) : null),
+    ];
+  }
+}
+
+class PopToggle extends StatelessWidget {
+  const PopToggle({
+    super.key,
+    required this.value,
+    required this.onChange,
+  });
+
+  final bool value;
+
+  final ValueSetter<bool> onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Dynamic pop'),
+        ),
+        body: Switch(
+          value: value,
+          onChanged: onChange,
+        ),
+      );
+    }
+
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Dynamic Pop'),
+      ),
+      child: Container(
+        color: CupertinoColors.systemGroupedBackground,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20.0),
+                    child: CupertinoFormSection.insetGrouped(
+                      children: [
+                        CupertinoListTile.notched(
+                          trailing: CupertinoSwitch(
+                            value: value,
+                            onChanged: onChange,
+                          ),
+                          title: const Text('Can pop'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ListDetailNavigator extends MappedNavigatableSource<int?> {
   ListDetailNavigator() : super(initialState: null);
 
@@ -135,14 +219,14 @@ class ListDetailNavigator extends MappedNavigatableSource<int?> {
     return [
       NumberSelectionPage(
         onNumberSelect: (number) => this.state = number,
-      ).page,
+      ).page(onPop: null),
       if (state != null)
         if (state == 7)
           LuckyNumberSevenPage(
             onTap: () => this.state = null,
-          ).popup
+          ).popup(onPop: () => this.state = null)
         else
-          NumberDetailPage(number: state).page..onPop = () => this.state = null,
+          NumberDetailPage(number: state).page(onPop: () => this.state = null),
     ];
   }
 }
