@@ -1,12 +1,12 @@
 name: fdr
 description: "Fully declarative routing for Flutter applications."
-version: 0.0.1
+version: 0.0.2
 homepage: "https://github.com/relentless-works/fdr"
 repository: "https://github.com/relentless-works/fdr"
 
 environment:
   sdk: ">=3.4.4 <4.0.0"
-  flutter: ">=1.22.0"
+  flutter: ">=3.24.0"
 
 dependencies:
   flutter:
@@ -17,5 +17,7 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^3.0.0
+
+  golden_toolkit: ^0.15.0
 
 flutter:
