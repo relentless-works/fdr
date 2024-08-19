@@ -123,7 +123,7 @@ class __ManagingDeclarativeNavigatorState
 
 sealed class DeclarativeNavigatable {}
 
-typedef PageBuilder = Page Function(VoidCallback? onPop);
+typedef PageBuilder = Page<Object?> Function(VoidCallback? onPop);
 
 class DeclarativeNavigatablePage implements DeclarativeNavigatable {
   DeclarativeNavigatablePage({
@@ -134,7 +134,7 @@ class DeclarativeNavigatablePage implements DeclarativeNavigatable {
 
   final PageBuilder _builder;
 
-  final Page page;
+  final Page<Object?> page;
 
   final VoidCallback? onPop;
 }
@@ -225,7 +225,7 @@ extension DeclarativeNavigatableFromWidget on Widget {
   }
 }
 
-class _CupertinoModalPopupPage extends Page {
+class _CupertinoModalPopupPage<T> extends Page<T> {
   const _CupertinoModalPopupPage({
     super.key,
     super.name,
@@ -237,7 +237,7 @@ class _CupertinoModalPopupPage extends Page {
   final Widget child;
 
   @override
-  Route createRoute(BuildContext context) {
+  Route<T> createRoute(BuildContext context) {
     return CupertinoModalPopupRoute(
       settings: this,
       barrierDismissible: true, // TODO(tp): Adapt
