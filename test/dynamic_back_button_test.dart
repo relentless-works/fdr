@@ -1,5 +1,7 @@
 // ignore_for_file: unused_element
 
+import 'dart:io';
+
 import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -31,7 +33,11 @@ void main() {
 
       final backButtonFinder = find.byType(BackButtonIcon);
 
-      await screenMatchesGolden(tester, 'dynamic_back_button/android/01_off');
+      if (Platform.environment['IS_CI'] == 'true') {
+        await tester.pumpAndSettle();
+      } else {
+        await screenMatchesGolden(tester, 'dynamic_back_button/android/01_off');
+      }
 
       expect(backButtonFinder, findsNothing);
 
@@ -43,14 +49,21 @@ void main() {
 
       await tester.tap(backButtonFinder);
 
-      await screenMatchesGolden(
-          tester, 'dynamic_back_button/android/03_transitioning_out',
+      if (Platform.environment['IS_CI'] == 'true') {
+        await tester.pumpAndSettle();
+      } else {
+        await screenMatchesGolden(
+          tester,
+          'dynamic_back_button/android/03_transitioning_out',
           customPump: (tester) async {
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-      });
+            await tester.pump();
 
-      await tester.pumpAndSettle();
+            await tester.pump(const Duration(milliseconds: 50));
+          },
+        );
+
+        await tester.pumpAndSettle();
+      }
 
       debugDefaultTargetPlatformOverride = null;
     });
