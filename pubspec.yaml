@@ -1,6 +1,6 @@
 name: fdr
 description: "Fully declarative routing for Flutter applications."
-version: 0.0.2
+version: 0.0.3
 homepage: "https://github.com/relentless-works/fdr"
 repository: "https://github.com/relentless-works/fdr"
 

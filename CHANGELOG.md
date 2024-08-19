@@ -1,3 +1,9 @@
+## 0.0.3
+
+* Add CI
+* Publish tags automatically from GitHub
+* Stricter analysis options
+
 ## 0.0.2
 
 * Switch to new Flutter 3.24.0 Navigator API: `onDidRemovePage`
