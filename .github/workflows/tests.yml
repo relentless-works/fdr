@@ -12,13 +12,9 @@ concurrency:
 
 jobs:
   test:
-    name: Test ${{ matrix.package }} on ${{ matrix.os }}
+    name: Test package
 
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [macos-14]
+    runs-on: macos-14
 
     steps:
       - uses: actions/checkout@v1
@@ -39,4 +35,14 @@ jobs:
       - name: Run tests
         env:
           IS_CI: "true"
-        run: flutter test --coverage
+        run: flutter test # --coverage
+
+      - name: Upload Flutter golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-goldens
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            **/failures/*.png

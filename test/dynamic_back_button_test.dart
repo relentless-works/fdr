@@ -1,7 +1,5 @@
 // ignore_for_file: unused_element
 
-import 'dart:io';
-
 import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -11,13 +9,6 @@ import 'package:golden_toolkit/golden_toolkit.dart';
 
 void main() {
   const size = Size(375, 600);
-
-  setUpAll(() {
-    loadAppFonts();
-
-    WidgetController.hitTestWarningShouldBeFatal = true;
-    EditableText.debugDeterministicCursor = true;
-  });
 
   group('Dynamic back button', () {
     testGoldens('Android', (tester) async {
@@ -33,11 +24,7 @@ void main() {
 
       final backButtonFinder = find.byType(BackButtonIcon);
 
-      if (Platform.environment['IS_CI'] == 'true') {
-        await tester.pumpAndSettle();
-      } else {
-        await screenMatchesGolden(tester, 'dynamic_back_button/android/01_off');
-      }
+      await screenMatchesGolden(tester, 'dynamic_back_button/android/01_off');
 
       expect(backButtonFinder, findsNothing);
 
@@ -49,21 +36,17 @@ void main() {
 
       await tester.tap(backButtonFinder);
 
-      if (Platform.environment['IS_CI'] == 'true') {
-        await tester.pumpAndSettle();
-      } else {
-        await screenMatchesGolden(
-          tester,
-          'dynamic_back_button/android/03_transitioning_out',
-          customPump: (tester) async {
-            await tester.pump();
+      await screenMatchesGolden(
+        tester,
+        'dynamic_back_button/android/03_transitioning_out',
+        customPump: (tester) async {
+          await tester.pump();
 
-            await tester.pump(const Duration(milliseconds: 50));
-          },
-        );
+          await tester.pump(const Duration(milliseconds: 50));
+        },
+      );
 
-        await tester.pumpAndSettle();
-      }
+      await tester.pumpAndSettle();
 
       debugDefaultTargetPlatformOverride = null;
     });
