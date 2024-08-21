@@ -134,7 +134,7 @@ class _Navigator extends MappedNavigatableSource<
   _Navigator() : super(initialState: (true, false));
 
   @override
-  List<DeclarativeNavigatable> build((bool, bool) state) {
+  List<DeclarativeNavigatable> build() {
     return [
       const _PlatformScaffold(
         title: Text('Home'),
@@ -143,8 +143,8 @@ class _Navigator extends MappedNavigatableSource<
       if (state.$1)
         _SwitchPage(
           canPop: state.$2,
-          onCanPopChanged: (v) => this.state = (true, v),
-        ).page(onPop: state.$2 ? () => this.state = (false, false) : null),
+          onCanPopChanged: (v) => state = (true, v),
+        ).page(onPop: state.$2 ? () => state = (false, false) : null),
     ];
   }
 }
