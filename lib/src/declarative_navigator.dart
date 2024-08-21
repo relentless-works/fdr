@@ -275,7 +275,7 @@ abstract class MappedNavigatableSource<T> implements NavigatableSource {
 
   // TODO(tp): Don't build (for child) while building (self)
   void _buildPages() {
-    final description = build(state);
+    final description = build();
 
     for (final n in _childNavigatableSources) {
       n.pages.removeListener(_buildPages);
@@ -302,17 +302,13 @@ abstract class MappedNavigatableSource<T> implements NavigatableSource {
     _pages.value = pages;
   }
 
-  // _pages.value = build(_state);
-
   late final ValueNotifier<List<DeclarativeNavigatablePage>> _pages;
 
   @override
   ValueListenable<List<DeclarativeNavigatablePage>> get pages => _pages;
 
-  // TODO(tp): Find a better name for `state` to avoid confusion between state and this.state (former should never be assigned)
-  // We might be able to do without the state, but then we have to use the usual `final state = this.state` at the beginning of the function for matchin (or use more `switch`…)
   @protected
-  List<DeclarativeNavigatable> build(final T state);
+  List<DeclarativeNavigatable> build();
 
   @mustCallSuper
   void dispose() {

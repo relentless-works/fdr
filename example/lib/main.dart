@@ -46,7 +46,9 @@ class ExampleSelectionNavigator
   ExampleSelectionNavigator() : super(initialState: null);
 
   @override
-  List<DeclarativeNavigatable> build(final DeclarativeNavigatable? state) {
+  List<DeclarativeNavigatable> build() {
+    final state = this.state;
+
     return [
       ExampleSelectionPage(
         examples: {
@@ -136,7 +138,7 @@ class DynamicPopNavigator extends MappedNavigatableSource<
   DynamicPopNavigator() : super(initialState: (true, false));
 
   @override
-  List<DeclarativeNavigatable> build((bool, bool) state) {
+  List<DeclarativeNavigatable> build() {
     final canPop = state.$2;
 
     return [
@@ -144,8 +146,8 @@ class DynamicPopNavigator extends MappedNavigatableSource<
       if (state.$1)
         PopToggle(
           value: canPop,
-          onChange: (v) => this.state = (true, v),
-        ).page(onPop: canPop ? () => this.state = (false, false) : null),
+          onChange: (v) => state = (true, v),
+        ).page(onPop: canPop ? () => state = (false, false) : null),
     ];
   }
 }
@@ -215,7 +217,9 @@ class ListDetailNavigator extends MappedNavigatableSource<int?> {
   ListDetailNavigator() : super(initialState: null);
 
   @override
-  List<DeclarativeNavigatable> build(final int? state) {
+  List<DeclarativeNavigatable> build() {
+    final state = this.state;
+
     return [
       NumberSelectionPage(
         onNumberSelect: (number) => this.state = number,
