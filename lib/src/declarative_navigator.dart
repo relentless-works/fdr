@@ -1,5 +1,6 @@
 // ignore_for_file: unused_element
 
+import 'package:fdr/src/navigatable_to_page_mapper.dart';
 import 'package:fdr/src/pages/cupertino_page.dart';
 import 'package:fdr/src/pages/material_page.dart';
 import 'package:flutter/cupertino.dart';
@@ -26,15 +27,15 @@ class DeclarativeNavigator extends StatefulWidget {
 }
 
 class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
+  late final NavigatableToPageMapper _pageMapper;
+
   @override
   void initState() {
     super.initState();
 
     final navigator = widget.navigator;
 
-    if (navigator is NavigatableSource) {
-      navigator.pages.addListener(_handleChange);
-    }
+    _pageMapper = NavigatableToPageMapper()..updatePages([navigator]);
   }
 
   @override
@@ -45,45 +46,28 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
     final oldNavigator = oldWidget.navigator;
 
     if (navigator != oldNavigator) {
-      if (oldNavigator is NavigatableSource) {
-        oldNavigator.pages.removeListener(_handleChange);
-      }
-
-      if (navigator is NavigatableSource) {
-        navigator.pages.addListener(_handleChange);
-      }
+      _pageMapper.updatePages([navigator]);
     }
-  }
-
-  void _handleChange() {
-    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final navigator = widget.navigator;
-
-    final pageNavigatables = switch (navigator) {
-      DeclarativeNavigatablePage() => [navigator],
-      // widget is already subscribed for updates
-      NavigatableSource() => navigator.pages.value,
-    };
-
-    return Navigator(
-      pages: pageNavigatables.map((n) => n.page).toList(),
-      onDidRemovePage: (page) {
-        debugPrint('onPopPage: $page');
+    return ValueListenableBuilder(
+      valueListenable: _pageMapper.pages,
+      builder: (context, pages, _) {
+        return Navigator(
+          pages: pages.map((n) => n.page).toList(),
+          onDidRemovePage: (page) {
+            debugPrint('onPopPage: $page');
+          },
+        );
       },
     );
   }
 
   @override
   void dispose() {
-    final navigator = widget.navigator;
-
-    if (navigator is NavigatableSource) {
-      navigator.pages.removeListener(_handleChange);
-    }
+    _pageMapper.dispose();
 
     super.dispose();
   }
@@ -119,11 +103,97 @@ class __ManagingDeclarativeNavigatorState
       navigator: navigator,
     );
   }
+
+  @override
+  void dispose() {
+    final navigator = this.navigator;
+
+    switch (navigator) {
+      case StatefulNavigator():
+        break;
+      case DeclarativeNavigatablePage():
+        break;
+      case NavigatableSource():
+        // TODO: Find better interface for when to cleanup
+        // Maybe the widget should receive a `dispose` callback parameter?
+        if (navigator is MappedNavigatableSource) {
+          navigator.dispose();
+        }
+    }
+
+    super.dispose();
+  }
 }
 
 sealed class DeclarativeNavigatable {}
 
 typedef PageBuilder = Page<Object?> Function(VoidCallback? onPop);
+
+abstract class StatefulNavigator implements DeclarativeNavigatable {
+  StatefulNavigatorState createState();
+}
+
+extension on StatefulNavigator {
+  StatefulNavigator _wrapWithPoppable({VoidCallback? onPop}) {
+    return PoppableStatefulNavigator(this, onPop: onPop);
+  }
+}
+
+class PoppableStatefulNavigator implements StatefulNavigator {
+  PoppableStatefulNavigator(
+    this.navigator, {
+    this.onPop,
+  });
+
+  final StatefulNavigator navigator;
+  final VoidCallback? onPop;
+
+  @override
+  StatefulNavigatorState<StatefulNavigator> createState() {
+    return navigator.createState();
+  }
+}
+
+abstract class StatefulNavigatorState<T extends StatefulNavigator>
+    implements NavigatableSource {
+  late T navigator;
+
+  late final NavigatableToPageMapper _pageMapper;
+
+  @override
+  ValueListenable<List<DeclarativeNavigatablePage>> get pages =>
+      _pageMapper.pages;
+
+  @mustCallSuper
+  void initState() {
+    _pageMapper = NavigatableToPageMapper();
+  }
+
+  @mustCallSuper
+  void didUpdateNavigator(covariant T oldNavigator) {}
+
+  // todo: ignore while updating
+  void setState(void Function() fn) {
+    fn();
+
+    updatePages();
+  }
+
+  void updatePages() {
+    _pageMapper.updatePages(build());
+  }
+
+  List<DeclarativeNavigatable> build();
+
+  @mustCallSuper
+  void dispose() {
+    _pageMapper.dispose();
+  }
+
+  bool isForNavigator(StatefulNavigator item) {
+    return item is T;
+  }
+}
 
 class DeclarativeNavigatablePage implements DeclarativeNavigatable {
   DeclarativeNavigatablePage({
@@ -139,9 +209,22 @@ class DeclarativeNavigatablePage implements DeclarativeNavigatable {
   final VoidCallback? onPop;
 }
 
-extension Poppable on NavigatableSource {
-  NavigatableSource poppable({required VoidCallback? onPop}) {
-    return _PoppableNavigatableSourceWrapper(this, onPop);
+extension Poppable on DeclarativeNavigatable {
+  DeclarativeNavigatable poppable({required VoidCallback? onPop}) {
+    final self = this;
+
+    return switch (self) {
+      DeclarativeNavigatablePage() => DeclarativeNavigatablePage(
+          builder: self._builder,
+          onPop: onPop,
+        ),
+      // TODO(tp): Use "pipe trick" to retain original type on wrapper?
+      NavigatableSource() => _PoppableNavigatableSourceWrapper(
+          self,
+          onPop,
+        ),
+      StatefulNavigator() => self._wrapWithPoppable(onPop: onPop),
+    };
   }
 }
 
@@ -252,10 +335,13 @@ abstract class NavigatableSource implements DeclarativeNavigatable {
 }
 
 abstract class MappedNavigatableSource<T> implements NavigatableSource {
-  MappedNavigatableSource({required T initialState}) : _state = initialState {
-    _pages = ValueNotifier([]);
-    _buildPages();
+  MappedNavigatableSource({
+    required T initialState,
+  }) : _state = initialState {
+    _pageMapper.updatePages(build());
   }
+
+  final _pageMapper = NavigatableToPageMapper();
 
   T _state;
 
@@ -264,56 +350,22 @@ abstract class MappedNavigatableSource<T> implements NavigatableSource {
     return _state;
   }
 
-  final _childNavigatableSources = <NavigatableSource>[];
-
   @protected
   set state(T value) {
     _state = value;
 
-    _buildPages();
+    _pageMapper.updatePages(build());
   }
-
-  // TODO(tp): Don't build (for child) while building (self)
-  void _buildPages() {
-    final description = build();
-
-    for (final n in _childNavigatableSources) {
-      n.pages.removeListener(_buildPages);
-    }
-
-    _childNavigatableSources.clear();
-
-    final pages = <DeclarativeNavigatablePage>[];
-
-    for (final item in description) {
-      switch (item) {
-        case DeclarativeNavigatablePage():
-          pages.add(item);
-
-        case NavigatableSource():
-          _childNavigatableSources.add(item);
-
-          item.pages.addListener(_buildPages);
-
-          pages.addAll(item.pages.value);
-      }
-    }
-
-    _pages.value = pages;
-  }
-
-  late final ValueNotifier<List<DeclarativeNavigatablePage>> _pages;
 
   @override
-  ValueListenable<List<DeclarativeNavigatablePage>> get pages => _pages;
+  ValueListenable<List<DeclarativeNavigatablePage>> get pages =>
+      _pageMapper.pages;
 
   @protected
   List<DeclarativeNavigatable> build();
 
   @mustCallSuper
   void dispose() {
-    for (final n in _childNavigatableSources) {
-      n.pages.removeListener(_buildPages);
-    }
+    _pageMapper.dispose();
   }
 }
