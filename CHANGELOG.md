@@ -1,3 +1,8 @@
+## 0.0.4
+
+* Add `StatefulNavigator`, akin to `StatefulWidget`
+  * Where the library takes care of managing the associated state object's lifecycle
+
 ## 0.0.3
 
 * Add CI

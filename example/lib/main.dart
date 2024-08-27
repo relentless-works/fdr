@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +47,17 @@ class ExampleSelectionNavigator
     extends MappedNavigatableSource<DeclarativeNavigatable?> {
   ExampleSelectionNavigator() : super(initialState: null);
 
+  // Manage state, such that any previous value is always cleaned up
+  @override
+  set state(DeclarativeNavigatable? newState) {
+    final state = this.state;
+    if (state is MappedNavigatableSource) {
+      state.dispose();
+    }
+
+    super.state = newState;
+  }
+
   @override
   List<DeclarativeNavigatable> build() {
     final state = this.state;
@@ -54,31 +67,23 @@ class ExampleSelectionNavigator
         examples: {
           'List Detail': () => ListDetailNavigator(),
           'Dynamic back behavior': () => DynamicPopNavigator(),
+          'Stateful Navigator': () => StatefulNavigatorDemo(initialCount: 100),
         },
-        // TODO(tp): Dispose previous if needed
-        onExampleSelect: (exampleFactory) {
-          final state = this.state;
-          if (state is MappedNavigatableSource) {
-            // TODO: Move `dispose` interface up, so we don't have to handle just the child-class here
-            state.dispose();
-          }
-
-          this.state = exampleFactory();
-        },
+        onExampleSelect: (exampleFactory) => this.state = exampleFactory(),
       ).page(onPop: null),
       if (state != null)
-        if (state is NavigatableSource)
-          // Use pipe type trick for type preservation? (not extension, but rather on class)
-          state.poppable(onPop: () {
-            if (state is MappedNavigatableSource) {
-              state.dispose();
-            }
-
-            this.state = null;
-          })
-        else
-          state,
+        state.poppable(onPop: () {
+          this.state = null;
+        })
     ];
+  }
+
+  @override
+  void dispose() {
+    // clean up any potentially created navigators
+    state = null;
+
+    super.dispose();
   }
 }
 
@@ -317,5 +322,74 @@ class LuckyNumberSevenPage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class StatefulNavigatorDemo extends StatefulNavigator {
+  StatefulNavigatorDemo({
+    required this.initialCount,
+  });
+
+  final int initialCount;
+
+  @override
+  StatefulNavigatorState<StatefulNavigatorDemo> createState() =>
+      _StatefulNavigatorDemoState();
+}
+
+class _StatefulNavigatorDemoState
+    extends StatefulNavigatorState<StatefulNavigatorDemo> {
+  late final Timer timer;
+
+  late int ticks;
+
+  @override
+  void initState() {
+    super.initState();
+
+    ticks = navigator.initialCount;
+
+    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {
+        ticks++;
+      });
+    });
+  }
+
+  @override
+  void didUpdateNavigator(covariant StatefulNavigatorDemo oldNavigator) {
+    super.didUpdateNavigator(oldNavigator);
+
+    if (navigator.initialCount != oldNavigator.initialCount) {
+      ticks = navigator.initialCount;
+    }
+  }
+
+  @override
+  List<DeclarativeNavigatable> build() {
+    return [
+      CupertinoPageScaffold(
+        navigationBar: const CupertinoNavigationBar(
+          middle: Text('Ticks'), // TODO(tp): Check hot reload on change
+        ),
+        child: SafeArea(
+          child: Scaffold(
+            body: Center(
+              child: Text(
+                '$ticks',
+                style: const TextStyle(fontSize: 90),
+              ),
+            ),
+          ),
+        ),
+      ).page(onPop: null),
+    ];
+  }
+
+  @override
+  void dispose() {
+    timer.cancel();
+
+    super.dispose();
   }
 }
