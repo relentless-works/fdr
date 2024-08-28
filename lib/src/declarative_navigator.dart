@@ -22,6 +22,9 @@ class DeclarativeNavigator extends StatefulWidget {
     );
   }
 
+  static final _hotReload = ChangeNotifier();
+  static Listenable get hotReload => _hotReload;
+
   @override
   State<DeclarativeNavigator> createState() => _DeclarativeNavigatorState();
 }
@@ -36,6 +39,16 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
     final navigator = widget.navigator;
 
     _pageMapper = NavigatableToPageMapper()..updatePages([navigator]);
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+
+    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+    DeclarativeNavigator._hotReload.notifyListeners();
+
+    debugPrint('Hot reloaded');
   }
 
   @override
@@ -151,6 +164,7 @@ abstract class StatefulNavigatorState<T extends StatefulNavigator>
   @mustCallSuper
   void initState() {
     _pageMapper = NavigatableToPageMapper();
+    DeclarativeNavigator.hotReload.addListener(updatePages);
   }
 
   @mustCallSuper
@@ -171,6 +185,7 @@ abstract class StatefulNavigatorState<T extends StatefulNavigator>
 
   @mustCallSuper
   void dispose() {
+    DeclarativeNavigator.hotReload.removeListener(updatePages);
     _pageMapper.dispose();
   }
 
@@ -272,6 +287,7 @@ class _CupertinoModalPopupPage<T> extends Page<T> {
   }
 }
 
+// When implementing this class, consider whether `pages` should be updated with hot reload
 abstract class NavigatableSource implements DeclarativeNavigatable {
   ValueListenable<List<DeclarativeNavigatablePage>> get pages;
 }
@@ -281,7 +297,9 @@ abstract class MappedNavigatableSource<T>
   MappedNavigatableSource({
     required T initialState,
   }) : _state = initialState {
-    _pageMapper.updatePages(build());
+    _update();
+
+    DeclarativeNavigator.hotReload.addListener(_update);
   }
 
   final _pageMapper = NavigatableToPageMapper();
@@ -297,6 +315,10 @@ abstract class MappedNavigatableSource<T>
   set state(T value) {
     _state = value;
 
+    _update();
+  }
+
+  void _update() {
     _pageMapper.updatePages(build());
   }
 
@@ -310,6 +332,8 @@ abstract class MappedNavigatableSource<T>
   @override
   @mustCallSuper
   void dispose() {
+    DeclarativeNavigator.hotReload.removeListener(_update);
+
     _pageMapper.dispose();
   }
 }

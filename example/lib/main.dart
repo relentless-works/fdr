@@ -67,7 +67,7 @@ class ExampleSelectionNavigator
         examples: {
           'List Detail': () => ListDetailNavigator(),
           'Dynamic back behavior': () => DynamicPopNavigator(),
-          'Stateful Navigator': () => StatefulNavigatorDemo(initialCount: 100),
+          'Stateful Navigator': () => HotReloadableStatefulNavigator(),
         },
         onExampleSelect: (exampleFactory) => this.state = exampleFactory(),
       ).page(onPop: null),
@@ -325,6 +325,17 @@ class LuckyNumberSevenPage extends StatelessWidget {
   }
 }
 
+class HotReloadableStatefulNavigator extends MappedNavigatableSource<void> {
+  HotReloadableStatefulNavigator() : super(initialState: null);
+
+  @override
+  List<DeclarativeNavigatable> build() {
+    return [
+      StatefulNavigatorDemo(initialCount: 100),
+    ];
+  }
+}
+
 class StatefulNavigatorDemo extends StatefulNavigator {
   StatefulNavigatorDemo({
     required this.initialCount,
@@ -362,6 +373,7 @@ class _StatefulNavigatorDemoState
 
     if (navigator.initialCount != oldNavigator.initialCount) {
       ticks = navigator.initialCount;
+      // for the best behavior, we would also have to reset the timer here
     }
   }
 
