@@ -51,7 +51,7 @@ class ExampleSelectionNavigator
   @override
   set state(DeclarativeNavigatable? newState) {
     final state = this.state;
-    if (state is MappedNavigatableSource) {
+    if (state is DisposableNavigatable) {
       state.dispose();
     }
 
@@ -377,7 +377,10 @@ class _StatefulNavigatorDemoState
             body: Center(
               child: Text(
                 '$ticks',
-                style: const TextStyle(fontSize: 90),
+                style: const TextStyle(
+                  fontSize: 90,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ),

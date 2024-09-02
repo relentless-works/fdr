@@ -12,5 +12,7 @@ export './src/declarative_navigator.dart'
         PageBuilder,
         Poppable,
         StatefulNavigator,
-        StatefulNavigatorState;
+        StatefulNavigatorState,
+        DisposableNavigatable,
+        PopOverwriteNavigatable;
 export './src/pages/fdr_page.dart' show FDRPage;

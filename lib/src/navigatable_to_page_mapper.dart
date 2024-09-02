@@ -1,6 +1,4 @@
 import 'package:fdr/fdr.dart';
-import 'package:fdr/src/declarative_navigator.dart'
-    show PoppableStatefulNavigator;
 import 'package:flutter/foundation.dart';
 
 final class NavigatableToPageMapper {
@@ -35,25 +33,38 @@ final class NavigatableToPageMapper {
       null,
     );
 
-    for (final (index, item) in _navigatables.indexed) {
+    for (final (index, outerItem) in _navigatables.indexed) {
+      final (item, onPopOverwrite) = outerItem is PopOverwriteNavigatable
+          ? (outerItem.child, outerItem.onPop)
+          : (outerItem, null);
+
       switch (item) {
         case DeclarativeNavigatablePage():
-          pages.add(item);
+          if (onPopOverwrite != null) {
+            pages.add(item.withOnPop(onPop: onPopOverwrite));
+          } else {
+            pages.add(item);
+          }
 
         case NavigatableSource():
           item.pages.removeListener(_rebuildPages);
 
-          pages.addAll(item.pages.value);
+          if (onPopOverwrite != null) {
+            final childPages = item.pages.value;
+
+            pages.addAll([
+              childPages.first.withOnPop(onPop: onPopOverwrite),
+              ...childPages.skip(1),
+            ]);
+          } else {
+            pages.addAll(item.pages.value);
+          }
 
           item.pages.addListener(_rebuildPages);
 
         case StatefulNavigator():
           if (_activeStatesByIndex.length > index &&
-              (item is PoppableStatefulNavigator &&
-                      _activeStatesByIndex[index]
-                              ?.isForNavigator(item.navigator) ==
-                          true ||
-                  _activeStatesByIndex[index]?.isForNavigator(item) == true)) {
+              _activeStatesByIndex[index]?.isForNavigator(item) == true) {
             // reuse existing state object
             states[index] = _activeStatesByIndex[index];
 
@@ -61,22 +72,17 @@ final class NavigatableToPageMapper {
             states[index]!.pages.removeListener(_rebuildPages);
 
             final oldNavigator = states[index]!.navigator;
-            if (item is PoppableStatefulNavigator) {
-              states[index]!.navigator = item.navigator;
-            } else {
-              states[index]!.navigator = item;
-            }
+            states[index]!.navigator = item;
             states[index]!.didUpdateNavigator(oldNavigator);
             states[index]!.updatePages();
 
             states[index]!.pages.addListener(_rebuildPages);
 
-            if (item is PoppableStatefulNavigator) {
+            if (onPopOverwrite != null) {
               final childPages = states[index]!.pages.value;
 
               final poppablePages = [
-                childPages.first.poppable(onPop: item.onPop)
-                    as DeclarativeNavigatablePage,
+                childPages.first.withOnPop(onPop: onPopOverwrite),
                 ...childPages.skip(1),
               ];
 
@@ -89,22 +95,17 @@ final class NavigatableToPageMapper {
             _activeStatesByIndex[index] = null;
           } else {
             states[index] = item.createState();
-            if (item is PoppableStatefulNavigator) {
-              states[index]!.navigator = item.navigator;
-            } else {
-              states[index]!.navigator = item;
-            }
+            states[index]!.navigator = item;
             states[index]!.initState();
             states[index]!.updatePages();
 
             states[index]!.pages.addListener(_rebuildPages);
 
-            if (item is PoppableStatefulNavigator) {
+            if (onPopOverwrite != null) {
               final childPages = states[index]!.pages.value;
 
               final poppablePages = [
-                childPages.first.poppable(onPop: item.onPop)
-                    as DeclarativeNavigatablePage,
+                childPages.first.withOnPop(onPop: onPopOverwrite),
                 ...childPages.skip(1),
               ];
 
@@ -113,6 +114,16 @@ final class NavigatableToPageMapper {
               pages.addAll(states[index]!.pages.value);
             }
           }
+
+        case PopOverwriteNavigatable():
+          throw Exception(
+            'Unexpected case, as $PopOverwriteNavigatable is unwrapped above',
+          );
+
+        case DisposableNavigatable():
+          throw Exception(
+            '$item only implements $DisposableNavigatable, but should implement another subtype of $DeclarativeNavigatable',
+          );
       }
     }
 

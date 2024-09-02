@@ -15,7 +15,7 @@ class DeclarativeNavigator extends StatefulWidget {
   });
 
   static Widget managing({
-    required ValueGetter<DeclarativeNavigatable> navigatorFactory,
+    required ValueGetter<DisposableNavigatable> navigatorFactory,
   }) {
     return _ManagingDeclarativeNavigator(
       navigatorFactory: navigatorFactory,
@@ -79,7 +79,7 @@ class _ManagingDeclarativeNavigator extends StatefulWidget {
     required this.navigatorFactory,
   });
 
-  final ValueGetter<DeclarativeNavigatable> navigatorFactory;
+  final ValueGetter<DisposableNavigatable> navigatorFactory;
 
   @override
   State<_ManagingDeclarativeNavigator> createState() =>
@@ -88,7 +88,7 @@ class _ManagingDeclarativeNavigator extends StatefulWidget {
 
 class __ManagingDeclarativeNavigatorState
     extends State<_ManagingDeclarativeNavigator> {
-  late final DeclarativeNavigatable navigator;
+  late final DisposableNavigatable navigator;
 
   @override
   void initState() {
@@ -106,52 +106,36 @@ class __ManagingDeclarativeNavigatorState
 
   @override
   void dispose() {
-    final navigator = this.navigator;
-
-    switch (navigator) {
-      case StatefulNavigator():
-        break;
-      case DeclarativeNavigatablePage():
-        break;
-      case NavigatableSource():
-        // TODO: Find better interface for when to cleanup
-        // Maybe the widget should receive a `dispose` callback parameter?
-        if (navigator is MappedNavigatableSource) {
-          navigator.dispose();
-        }
-    }
+    navigator.dispose();
 
     super.dispose();
   }
 }
 
+abstract class DisposableNavigatable implements DeclarativeNavigatable {
+  @mustCallSuper
+  void dispose();
+}
+
 sealed class DeclarativeNavigatable {}
+
+class PopOverwriteNavigatable implements DeclarativeNavigatable {
+  final DeclarativeNavigatable child;
+
+  final VoidCallback? onPop;
+
+  PopOverwriteNavigatable(
+    DeclarativeNavigatable child, {
+    this.onPop,
+  }) : child = child is PopOverwriteNavigatable ? child.child : child {
+    assert(child is! PopOverwriteNavigatable);
+  }
+}
 
 typedef PageBuilder = Page<Object?> Function(VoidCallback? onPop);
 
 abstract class StatefulNavigator implements DeclarativeNavigatable {
   StatefulNavigatorState createState();
-}
-
-extension on StatefulNavigator {
-  StatefulNavigator _wrapWithPoppable({VoidCallback? onPop}) {
-    return PoppableStatefulNavigator(this, onPop: onPop);
-  }
-}
-
-class PoppableStatefulNavigator implements StatefulNavigator {
-  PoppableStatefulNavigator(
-    this.navigator, {
-    this.onPop,
-  });
-
-  final StatefulNavigator navigator;
-  final VoidCallback? onPop;
-
-  @override
-  StatefulNavigatorState<StatefulNavigator> createState() {
-    return navigator.createState();
-  }
 }
 
 abstract class StatefulNavigatorState<T extends StatefulNavigator>
@@ -207,60 +191,18 @@ class DeclarativeNavigatablePage implements DeclarativeNavigatable {
   final Page<Object?> page;
 
   final VoidCallback? onPop;
+
+  DeclarativeNavigatablePage withOnPop({required VoidCallback? onPop}) {
+    return DeclarativeNavigatablePage(
+      builder: _builder,
+      onPop: onPop,
+    );
+  }
 }
 
 extension Poppable on DeclarativeNavigatable {
   DeclarativeNavigatable poppable({required VoidCallback? onPop}) {
-    final self = this;
-
-    return switch (self) {
-      DeclarativeNavigatablePage() => DeclarativeNavigatablePage(
-          builder: self._builder,
-          onPop: onPop,
-        ),
-      // TODO(tp): Use "pipe trick" to retain original type on wrapper?
-      NavigatableSource() => _PoppableNavigatableSourceWrapper(
-          self,
-          onPop,
-        ),
-      StatefulNavigator() => self._wrapWithPoppable(onPop: onPop),
-    };
-  }
-}
-
-class _PoppableNavigatableSourceWrapper implements NavigatableSource {
-  _PoppableNavigatableSourceWrapper(
-    this._navigatableSource,
-    this.onPop,
-  ) {
-    _navigatableSource.pages.addListener(_updatePages);
-    _updatePages();
-  }
-
-  final NavigatableSource _navigatableSource;
-  final VoidCallback? onPop;
-
-  final _pages = ValueNotifier<List<DeclarativeNavigatablePage>>([]);
-
-  @override
-  ValueListenable<List<DeclarativeNavigatablePage>> get pages => _pages;
-
-  void _updatePages() {
-    final pages = _navigatableSource.pages.value;
-
-    _pages.value = [
-      DeclarativeNavigatablePage(
-        builder: pages.first._builder,
-        // TODO(tp): What about the underlying onpop, if any? (though unlikely makes sense)
-        onPop: onPop,
-      ),
-      ...pages.skip(1),
-    ];
-  }
-
-  // TODO(tp): Ensure invocation
-  void dispose() {
-    _navigatableSource.pages.removeListener(_updatePages);
+    return PopOverwriteNavigatable(this, onPop: onPop);
   }
 }
 
@@ -334,7 +276,8 @@ abstract class NavigatableSource implements DeclarativeNavigatable {
   ValueListenable<List<DeclarativeNavigatablePage>> get pages;
 }
 
-abstract class MappedNavigatableSource<T> implements NavigatableSource {
+abstract class MappedNavigatableSource<T>
+    implements NavigatableSource, DisposableNavigatable {
   MappedNavigatableSource({
     required T initialState,
   }) : _state = initialState {
@@ -364,6 +307,7 @@ abstract class MappedNavigatableSource<T> implements NavigatableSource {
   @protected
   List<DeclarativeNavigatable> build();
 
+  @override
   @mustCallSuper
   void dispose() {
     _pageMapper.dispose();
