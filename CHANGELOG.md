@@ -1,4 +1,4 @@
-### 0.5
+## 0.0.5
 
 * Support hot reload for all built-in navigators
 * Add `StatelessNavigator`, akin to `StatelessWidget` for when the child pages are determined just from the arguments
