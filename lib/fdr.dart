@@ -14,6 +14,8 @@ export './src/declarative_navigatable/declarative_navigatable.dart'
         PopOverwriteNavigatable;
 export './src/declarative_navigatable/mapped_navigatable_source.dart'
     show MappedNavigatableSource;
+export './src/declarative_navigatable/stateless_navigator.dart'
+    show StatelessNavigator;
 export './src/declarative_navigator.dart' show DeclarativeNavigator;
 export './src/pages/fdr_page.dart' show FDRPage;
 export './src/widget_extensions.dart' show DeclarativeNavigatableFromWidget;
