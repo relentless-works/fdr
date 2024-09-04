@@ -1,11 +1,6 @@
-// ignore_for_file: unused_element
-
+import 'package:fdr/fdr.dart';
 import 'package:fdr/src/navigatable_to_page_mapper.dart';
-import 'package:fdr/src/pages/cupertino_page.dart';
-import 'package:fdr/src/pages/material_page.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 class DeclarativeNavigator extends StatefulWidget {
   final DeclarativeNavigatable navigator;
@@ -15,9 +10,11 @@ class DeclarativeNavigator extends StatefulWidget {
   });
 
   static Widget managing({
+    Key? key,
     required ValueGetter<DisposableNavigatable> navigatorFactory,
   }) {
     return _ManagingDeclarativeNavigator(
+      key: key,
       navigatorFactory: navigatorFactory,
     );
   }
@@ -47,8 +44,6 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
 
     // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
     DeclarativeNavigator._hotReload.notifyListeners();
-
-    debugPrint('Hot reloaded');
   }
 
   @override
@@ -122,218 +117,5 @@ class __ManagingDeclarativeNavigatorState
     navigator.dispose();
 
     super.dispose();
-  }
-}
-
-abstract class DisposableNavigatable implements DeclarativeNavigatable {
-  @mustCallSuper
-  void dispose();
-}
-
-sealed class DeclarativeNavigatable {}
-
-class PopOverwriteNavigatable implements DeclarativeNavigatable {
-  final DeclarativeNavigatable child;
-
-  final VoidCallback? onPop;
-
-  PopOverwriteNavigatable(
-    DeclarativeNavigatable child, {
-    this.onPop,
-  }) : child = child is PopOverwriteNavigatable ? child.child : child {
-    assert(child is! PopOverwriteNavigatable);
-  }
-}
-
-typedef PageBuilder = Page<Object?> Function(VoidCallback? onPop);
-
-abstract class StatefulNavigator implements DeclarativeNavigatable {
-  StatefulNavigatorState createState();
-}
-
-abstract class StatefulNavigatorState<T extends StatefulNavigator>
-    implements NavigatableSource {
-  late T navigator;
-
-  late final NavigatableToPageMapper _pageMapper;
-
-  @override
-  ValueListenable<List<DeclarativeNavigatablePage>> get pages =>
-      _pageMapper.pages;
-
-  @mustCallSuper
-  void initState() {
-    _pageMapper = NavigatableToPageMapper();
-    DeclarativeNavigator.hotReload.addListener(updatePages);
-  }
-
-  @mustCallSuper
-  void didUpdateNavigator(covariant T oldNavigator) {}
-
-  // todo: ignore while updating
-  void setState(void Function() fn) {
-    fn();
-
-    updatePages();
-  }
-
-  void updatePages() {
-    _pageMapper.updatePages(build());
-  }
-
-  List<DeclarativeNavigatable> build();
-
-  @mustCallSuper
-  void dispose() {
-    DeclarativeNavigator.hotReload.removeListener(updatePages);
-    _pageMapper.dispose();
-  }
-
-  bool isForNavigator(StatefulNavigator item) {
-    return item is T;
-  }
-}
-
-class DeclarativeNavigatablePage implements DeclarativeNavigatable {
-  DeclarativeNavigatablePage({
-    required PageBuilder builder,
-    required this.onPop,
-  })  : _builder = builder,
-        page = builder(onPop);
-
-  final PageBuilder _builder;
-
-  final Page<Object?> page;
-
-  final VoidCallback? onPop;
-
-  DeclarativeNavigatablePage withOnPop({required VoidCallback? onPop}) {
-    return DeclarativeNavigatablePage(
-      builder: _builder,
-      onPop: onPop,
-    );
-  }
-}
-
-extension Poppable on DeclarativeNavigatable {
-  DeclarativeNavigatable poppable({required VoidCallback? onPop}) {
-    return PopOverwriteNavigatable(this, onPop: onPop);
-  }
-}
-
-extension DeclarativeNavigatableFromWidget on Widget {
-  DeclarativeNavigatablePage page({
-    /// Provide `null` if the page should not be poppable
-    required VoidCallback? onPop,
-  }) {
-    return DeclarativeNavigatablePage(
-      builder: (onPop) => defaultTargetPlatform == TargetPlatform.android
-          ? FDRMaterialPage(
-              child: this,
-              canPop: onPop != null,
-              onPopInvoked: (didPop, _) {
-                if (didPop) {
-                  // When the route was popped, it had to be pop-able (`canPop = true`),
-                  // such that there is a callback to update the state to reflect its absence
-                  onPop!();
-                }
-              },
-            )
-          : FDRCupertinoPage(
-              child: this,
-              canPop: onPop != null,
-              onPopInvoked: (didPop, _) {
-                if (didPop) {
-                  // When the route was popped, it had to be pop-able (`canPop = true`),
-                  // such that there is a callback to update the state to reflect its absence
-                  onPop!();
-                }
-              },
-            ),
-      onPop: onPop,
-    );
-  }
-
-  DeclarativeNavigatablePage popup({
-    /// Provide `null` if the model should not be poppable
-    required VoidCallback? onPop,
-  }) {
-    return DeclarativeNavigatablePage(
-      builder: (onPop) => _CupertinoModalPopupPage(child: this),
-      onPop: onPop,
-    );
-  }
-}
-
-class _CupertinoModalPopupPage<T> extends Page<T> {
-  const _CupertinoModalPopupPage({
-    super.key,
-    super.name,
-    super.arguments,
-    super.restorationId,
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  Route<T> createRoute(BuildContext context) {
-    return CupertinoModalPopupRoute(
-      settings: this,
-      barrierDismissible: true, // TODO(tp): Adapt
-      barrierColor: Colors.transparent,
-      builder: (context) => child,
-    );
-  }
-}
-
-// When implementing this class, consider whether `pages` should be updated with hot reload
-abstract class NavigatableSource implements DeclarativeNavigatable {
-  ValueListenable<List<DeclarativeNavigatablePage>> get pages;
-}
-
-abstract class MappedNavigatableSource<T>
-    implements NavigatableSource, DisposableNavigatable {
-  MappedNavigatableSource({
-    required T initialState,
-  }) : _state = initialState {
-    _update();
-
-    DeclarativeNavigator.hotReload.addListener(_update);
-  }
-
-  final _pageMapper = NavigatableToPageMapper();
-
-  T _state;
-
-  @protected
-  T get state {
-    return _state;
-  }
-
-  @protected
-  set state(T value) {
-    _state = value;
-
-    _update();
-  }
-
-  void _update() {
-    _pageMapper.updatePages(build());
-  }
-
-  @override
-  ValueListenable<List<DeclarativeNavigatablePage>> get pages =>
-      _pageMapper.pages;
-
-  @protected
-  List<DeclarativeNavigatable> build();
-
-  @override
-  @mustCallSuper
-  void dispose() {
-    DeclarativeNavigator.hotReload.removeListener(_update);
-
-    _pageMapper.dispose();
   }
 }
