@@ -1,8 +1,16 @@
 import 'package:fdr/fdr.dart';
 
-abstract class StatelessNavigator extends MappedNavigatableSource<void> {
-  StatelessNavigator() : super(initialState: null);
+abstract class StatelessNavigator extends StatefulNavigator {
+  List<DeclarativeNavigatable> build();
 
   @override
-  List<DeclarativeNavigatable> build();
+  StatefulNavigatorState<StatefulNavigator> createState() =>
+      _StatelessNavigatorState();
+}
+
+class _StatelessNavigatorState extends StatefulNavigatorState {
+  @override
+  List<DeclarativeNavigatable> build() {
+    return (navigator as StatelessNavigator).build();
+  }
 }
