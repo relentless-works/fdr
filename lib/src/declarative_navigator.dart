@@ -9,16 +9,6 @@ class DeclarativeNavigator extends StatefulWidget {
     required this.navigator,
   });
 
-  static Widget managing({
-    Key? key,
-    required ValueGetter<DisposableNavigatable> navigatorFactory,
-  }) {
-    return _ManagingDeclarativeNavigator(
-      key: key,
-      navigatorFactory: navigatorFactory,
-    );
-  }
-
   static final _hotReload = ChangeNotifier();
   static Listenable get hotReload => _hotReload;
 
@@ -76,45 +66,6 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
   @override
   void dispose() {
     _pageMapper.dispose();
-
-    super.dispose();
-  }
-}
-
-class _ManagingDeclarativeNavigator extends StatefulWidget {
-  const _ManagingDeclarativeNavigator({
-    super.key,
-    required this.navigatorFactory,
-  });
-
-  final ValueGetter<DisposableNavigatable> navigatorFactory;
-
-  @override
-  State<_ManagingDeclarativeNavigator> createState() =>
-      __ManagingDeclarativeNavigatorState();
-}
-
-class __ManagingDeclarativeNavigatorState
-    extends State<_ManagingDeclarativeNavigator> {
-  late final DisposableNavigatable navigator;
-
-  @override
-  void initState() {
-    super.initState();
-
-    navigator = widget.navigatorFactory();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DeclarativeNavigator(
-      navigator: navigator,
-    );
-  }
-
-  @override
-  void dispose() {
-    navigator.dispose();
 
     super.dispose();
   }

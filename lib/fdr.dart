@@ -5,15 +5,12 @@ export './src/declarative_navigatable/declarative_navigatable.dart'
     show
         DeclarativeNavigatable,
         DeclarativeNavigatablePage,
-        NavigatableSource,
         PageBuilder,
         Poppable,
         StatefulNavigator,
         StatefulNavigatorState,
         DisposableNavigatable,
         PopOverwriteNavigatable;
-export './src/declarative_navigatable/mapped_navigatable_source.dart'
-    show MappedNavigatableSource;
 export './src/declarative_navigatable/stateless_navigator.dart'
     show StatelessNavigator;
 export './src/declarative_navigator.dart' show DeclarativeNavigator;

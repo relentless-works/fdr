@@ -16,8 +16,8 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
       await tester.pumpWidgetBuilder(
-        DeclarativeNavigator.managing(
-          navigatorFactory: () => _Navigator(),
+        DeclarativeNavigator(
+          navigator: _Navigator(),
         ),
         surfaceSize: size,
       );
@@ -55,8 +55,8 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
       await tester.pumpWidgetBuilder(
-        DeclarativeNavigator.managing(
-          navigatorFactory: () => _Navigator(),
+        DeclarativeNavigator(
+          navigator: _Navigator(),
         ),
         surfaceSize: size,
         wrapper: (child) => CupertinoApp(
@@ -125,13 +125,14 @@ class _PlatformScaffold extends StatelessWidget {
   }
 }
 
-class _Navigator extends MappedNavigatableSource<
-    (
-      bool /* show child */,
-      bool
-      /* can pop */
-    )> {
-  _Navigator() : super(initialState: (true, false));
+class _Navigator extends StatefulNavigator {
+  @override
+  StatefulNavigatorState<_Navigator> createState() => _NavigatorState();
+}
+
+class _NavigatorState extends StatefulNavigatorState<_Navigator> {
+  bool showChild = true;
+  bool canPop = false;
 
   @override
   List<DeclarativeNavigatable> build() {
@@ -140,11 +141,11 @@ class _Navigator extends MappedNavigatableSource<
         title: Text('Home'),
         child: ColoredBox(color: Colors.blue),
       ).page(onPop: null),
-      if (state.$1)
+      if (showChild)
         _SwitchPage(
-          canPop: state.$2,
-          onCanPopChanged: (v) => state = (true, v),
-        ).page(onPop: state.$2 ? () => state = (false, false) : null),
+          canPop: canPop,
+          onCanPopChanged: (v) => setState(() => canPop = v),
+        ).page(onPop: canPop ? () => setState(() => showChild = false) : null),
     ];
   }
 }

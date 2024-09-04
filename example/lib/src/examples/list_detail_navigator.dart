@@ -2,24 +2,36 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class ListDetailNavigator extends MappedNavigatableSource<int?> {
-  ListDetailNavigator() : super(initialState: null);
+class ListDetailNavigator extends StatefulNavigator {
+  ListDetailNavigator();
+
+  @override
+  StatefulNavigatorState<ListDetailNavigator> createState() =>
+      _ListDetailNavigatorState();
+}
+
+class _ListDetailNavigatorState
+    extends StatefulNavigatorState<ListDetailNavigator> {
+  int? selectedNumber;
 
   @override
   List<DeclarativeNavigatable> build() {
-    final state = this.state;
+    final selectedNumber = this.selectedNumber;
+
+    clear() => setState(() => this.selectedNumber = null);
 
     return [
       NumberSelectionPage(
-        onNumberSelect: (number) => this.state = number,
+        onNumberSelect: (number) =>
+            setState(() => this.selectedNumber = number),
       ).page(onPop: null),
-      if (state != null)
-        if (state == 7)
+      if (selectedNumber != null)
+        if (selectedNumber == 7)
           LuckyNumberSevenPage(
-            onTap: () => this.state = null,
-          ).popup(onPop: () => this.state = null)
+            onTap: clear,
+          ).popup(onPop: clear)
         else
-          NumberDetailPage(number: state).page(onPop: () => this.state = null),
+          NumberDetailPage(number: selectedNumber).page(onPop: clear),
     ];
   }
 }

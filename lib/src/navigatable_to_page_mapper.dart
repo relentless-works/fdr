@@ -20,12 +20,6 @@ final class NavigatableToPageMapper {
     // Only passed when we switch to a different set of navigatables (though some children might overlap)
     final List<DeclarativeNavigatable>? oldNavigatable,
   ]) {
-    if (oldNavigatable != null) {
-      for (final n in oldNavigatable.whereType<NavigatableSource>()) {
-        n.pages.removeListener(_rebuildPages);
-      }
-    }
-
     final pages = <DeclarativeNavigatablePage>[];
 
     final states = List<StatefulNavigatorState?>.filled(
@@ -45,22 +39,6 @@ final class NavigatableToPageMapper {
           } else {
             pages.add(item);
           }
-
-        case NavigatableSource():
-          item.pages.removeListener(_rebuildPages);
-
-          if (onPopOverwrite != null) {
-            final childPages = item.pages.value;
-
-            pages.addAll([
-              childPages.first.withOnPop(onPop: onPopOverwrite),
-              ...childPages.skip(1),
-            ]);
-          } else {
-            pages.addAll(item.pages.value);
-          }
-
-          item.pages.addListener(_rebuildPages);
 
         case StatefulNavigator():
           if (_activeStatesByIndex.length > index &&
@@ -141,10 +119,6 @@ final class NavigatableToPageMapper {
   void dispose() {
     for (final state in _activeStatesByIndex.nonNulls) {
       state.dispose();
-    }
-
-    for (final n in _navigatables.whereType<NavigatableSource>()) {
-      n.pages.removeListener(_rebuildPages);
     }
   }
 }

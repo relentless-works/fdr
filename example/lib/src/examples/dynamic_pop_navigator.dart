@@ -2,17 +2,19 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class DynamicPopNavigator extends MappedNavigatableSource<
-    (
-      bool /* shows child */,
-      bool /* can pop */,
-    )> {
-  DynamicPopNavigator() : super(initialState: (true, false));
+class DynamicPopNavigator extends StatefulNavigator {
+  @override
+  StatefulNavigatorState<DynamicPopNavigator> createState() =>
+      _DynamicPopNavigatorState();
+}
+
+class _DynamicPopNavigatorState
+    extends StatefulNavigatorState<DynamicPopNavigator> {
+  bool showChild = true;
+  bool canPop = false;
 
   @override
   List<DeclarativeNavigatable> build() {
-    final canPop = state.$2;
-
     return [
       Scaffold(
         appBar: AppBar(
@@ -20,16 +22,16 @@ class DynamicPopNavigator extends MappedNavigatableSource<
         ),
         body: Center(
           child: FilledButton(
-            onPressed: () => state = (true, false),
+            onPressed: () => setState(() => showChild = true),
             child: const Text('Open child page'),
           ),
         ),
       ).page(onPop: null),
-      if (state.$1)
+      if (showChild)
         PopToggle(
           value: canPop,
-          onChange: (v) => state = (true, v),
-        ).page(onPop: canPop ? () => state = (false, false) : null),
+          onChange: (v) => setState(() => canPop = v),
+        ).page(onPop: canPop ? () => setState(() => showChild = false) : null),
     ];
   }
 }
