@@ -4,7 +4,7 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class HotReloadableNavigator extends StatelessNavigator {
+class HotReloadableStatefulNavigator extends StatelessNavigator {
   @override
   List<DeclarativeNavigatable> build() {
     return [

@@ -1,6 +1,8 @@
 import 'package:fdr/fdr.dart';
 import 'package:fdr_example/src/examples/dynamic_pop_navigator.dart';
-import 'package:fdr_example/src/examples/hot_reloadable_navigator.dart';
+import 'package:fdr_example/src/examples/hot_reloadable_mapped_navigator.dart';
+import 'package:fdr_example/src/examples/hot_reloadable_stateful_navigator.dart';
+import 'package:fdr_example/src/examples/hot_reloadable_stateless_navigator.dart';
 import 'package:fdr_example/src/examples/list_detail_navigator.dart';
 import 'package:fdr_example/src/examples/overlay_portal_navigator.dart';
 import 'package:flutter/cupertino.dart';
@@ -29,7 +31,9 @@ class ExampleSelectionNavigator
         examples: {
           'List Detail': () => ListDetailNavigator(),
           'Dynamic back behavior': () => DynamicPopNavigator(),
-          'Stateful Navigator w/ hot reload': () => HotReloadableNavigator(),
+          'Stateful Navigator': () => HotReloadableStatefulNavigator(),
+          'Stateless Navigator': () => HotReloadableStatelessNavigator(),
+          'Mapped Navigator': () => HotReloadableMappedNavigator(),
           'Overlay Portal': () => OverlayPortalNavigator(),
         },
         onExampleSelect: (exampleFactory) => this.state = exampleFactory(),
