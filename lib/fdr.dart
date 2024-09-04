@@ -9,7 +9,6 @@ export './src/declarative_navigatable/declarative_navigatable.dart'
         Poppable,
         StatefulNavigator,
         StatefulNavigatorState,
-        DisposableNavigatable,
         PopOverwriteNavigatable;
 export './src/declarative_navigatable/stateless_navigator.dart'
     show StatelessNavigator;
