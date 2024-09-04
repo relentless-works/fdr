@@ -68,13 +68,11 @@ class ExampleSelectionNavigator
           'List Detail': () => ListDetailNavigator(),
           'Dynamic back behavior': () => DynamicPopNavigator(),
           'Stateful Navigator': () => HotReloadableStatefulNavigator(),
+          'Overlay Portal': () => OverlayPortalNavigator(),
         },
         onExampleSelect: (exampleFactory) => this.state = exampleFactory(),
       ).page(onPop: null),
-      if (state != null)
-        state.poppable(onPop: () {
-          this.state = null;
-        })
+      if (state != null) state.poppable(onPop: () => this.state = null)
     ];
   }
 
@@ -128,6 +126,58 @@ class ExampleSelectionPage extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class OverlayPortalNavigator extends StatelessNavigator {
+  @override
+  List<DeclarativeNavigatable> build() {
+    return [
+      const OverlayTogglePage().page(onPop: null),
+    ];
+  }
+}
+
+class OverlayTogglePage extends StatefulWidget {
+  const OverlayTogglePage({super.key});
+
+  @override
+  State<OverlayTogglePage> createState() => _OverlayTogglePageState();
+}
+
+class _OverlayTogglePageState extends State<OverlayTogglePage> {
+  final controller = OverlayPortalController();
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Overlay Portal'),
+      ),
+      child: SafeArea(
+        child: OverlayPortal(
+          controller: controller,
+          overlayChildBuilder: (context) => Center(
+            child: GestureDetector(
+              onTap: controller.toggle,
+              child: Container(
+                width: 300,
+                height: 300,
+                color: Colors.red.withOpacity(0.8),
+              ),
+            ),
+          ),
+          child: Center(
+            child: CupertinoButton.filled(
+              child: const Text('Show overlay'),
+              onPressed: () {
+                controller.toggle();
+              },
+            ),
           ),
         ),
       ),
