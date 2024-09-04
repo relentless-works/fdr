@@ -1,30 +1,24 @@
 import 'package:fdr/fdr.dart';
 import 'package:fdr_example/src/examples/dynamic_pop_navigator.dart';
-import 'package:fdr_example/src/examples/hot_reloadable_mapped_navigator.dart';
 import 'package:fdr_example/src/examples/hot_reloadable_stateful_navigator.dart';
 import 'package:fdr_example/src/examples/hot_reloadable_stateless_navigator.dart';
 import 'package:fdr_example/src/examples/list_detail_navigator.dart';
 import 'package:fdr_example/src/examples/overlay_portal_navigator.dart';
 import 'package:flutter/cupertino.dart';
 
-class ExampleSelectionNavigator
-    extends MappedNavigatableSource<DeclarativeNavigatable?> {
-  ExampleSelectionNavigator() : super(initialState: null);
-
-  // Manage state, such that any previous value is always cleaned up
+class ExampleSelectionNavigator extends StatefulNavigator {
   @override
-  set state(DeclarativeNavigatable? newState) {
-    final state = this.state;
-    if (state is DisposableNavigatable) {
-      state.dispose();
-    }
+  StatefulNavigatorState<ExampleSelectionNavigator> createState() =>
+      _ExampleSelectionNavigatorState();
+}
 
-    super.state = newState;
-  }
+class _ExampleSelectionNavigatorState
+    extends StatefulNavigatorState<ExampleSelectionNavigator> {
+  DeclarativeNavigatable? child;
 
   @override
   List<DeclarativeNavigatable> build() {
-    final state = this.state;
+    final child = this.child;
 
     return [
       ExampleSelectionPage(
@@ -33,21 +27,15 @@ class ExampleSelectionNavigator
           'Dynamic back behavior': () => DynamicPopNavigator(),
           'Stateful Navigator': () => HotReloadableStatefulNavigator(),
           'Stateless Navigator': () => HotReloadableStatelessNavigator(),
-          'Mapped Navigator': () => HotReloadableMappedNavigator(),
           'Overlay Portal': () => OverlayPortalNavigator(),
         },
-        onExampleSelect: (exampleFactory) => this.state = exampleFactory(),
+        onExampleSelect: (exampleFactory) => setState(
+          () => this.child = exampleFactory(),
+        ),
       ).page(onPop: null),
-      if (state != null) state.poppable(onPop: () => this.state = null)
+      if (child != null)
+        child.poppable(onPop: () => setState(() => this.child = null)),
     ];
-  }
-
-  @override
-  void dispose() {
-    // clean up any potentially created navigators
-    state = null;
-
-    super.dispose();
   }
 }
 

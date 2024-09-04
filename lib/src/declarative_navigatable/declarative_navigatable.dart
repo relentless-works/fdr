@@ -5,7 +5,6 @@ import 'package:flutter/widgets.dart';
 
 part 'declarative_navigatable_page.dart';
 part 'disposable_navigatable.dart';
-part 'navigatable_source.dart';
 part 'pop_overwrite_navigatable.dart';
 part 'stateful_navigator.dart';
 

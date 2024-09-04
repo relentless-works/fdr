@@ -4,13 +4,11 @@ abstract class StatefulNavigator implements DeclarativeNavigatable {
   StatefulNavigatorState createState();
 }
 
-abstract class StatefulNavigatorState<T extends StatefulNavigator>
-    implements NavigatableSource {
+abstract class StatefulNavigatorState<T extends StatefulNavigator> {
   late T navigator;
 
   late final NavigatableToPageMapper _pageMapper;
 
-  @override
   ValueListenable<List<DeclarativeNavigatablePage>> get pages =>
       _pageMapper.pages;
 
