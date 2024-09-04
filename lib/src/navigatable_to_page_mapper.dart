@@ -97,11 +97,6 @@ final class NavigatableToPageMapper {
           throw Exception(
             'Unexpected case, as $PopOverwriteNavigatable is unwrapped above',
           );
-
-        case DisposableNavigatable():
-          throw Exception(
-            '$item only implements $DisposableNavigatable, but should implement another subtype of $DeclarativeNavigatable',
-          );
       }
     }
 
