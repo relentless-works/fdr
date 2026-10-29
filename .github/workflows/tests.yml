@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 
 concurrency:
@@ -21,10 +21,10 @@ jobs:
 
       - uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
         with:
-          flutter-version: "3.24.0"
+          flutter-version: "3.47.5"
 
       - name: Install dependencies
-        run: flutter packages get --enforce-lockfile
+        run: flutter pub get --enforce-lockfile
 
       - name: Analyze
         run: flutter analyze

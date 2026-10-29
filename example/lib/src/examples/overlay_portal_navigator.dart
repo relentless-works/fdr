@@ -37,7 +37,7 @@ class _OverlayTogglePageState extends State<OverlayTogglePage> {
               child: Container(
                 width: 300,
                 height: 300,
-                color: Colors.red.withOpacity(0.8),
+                color: Colors.red.withValues(alpha: 0.8),
               ),
             ),
           ),

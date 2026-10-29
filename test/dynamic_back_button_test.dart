@@ -96,7 +96,6 @@ void main() {
 
 class _PlatformScaffold extends StatelessWidget {
   const _PlatformScaffold({
-    super.key,
     required this.title,
     required this.child,
   });
@@ -152,7 +151,6 @@ class _NavigatorState extends StatefulNavigatorState<_Navigator> {
 
 class _SwitchPage extends StatelessWidget {
   const _SwitchPage({
-    super.key,
     required this.canPop,
     required this.onCanPopChanged,
   });
