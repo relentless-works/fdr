@@ -101,6 +101,21 @@ class FdrRouterDelegate<R extends Object>
     notifyListeners();
   }
 
+  /// Applies [route] like a link, from outside the navigator tree: a push
+  /// notification handler, a button in a dialog, a test. Unlike an incoming
+  /// URL, it is a navigation of its own: by default the history action is
+  /// derived from how the page stack changes (push, or a back for pops).
+  void navigate(R route, {HistoryAction history = HistoryAction.auto}) {
+    _applying = true;
+    try {
+      _mapper.updatePages([_rootMount(root)], incomingRoute: route);
+    } finally {
+      _applying = false;
+    }
+    scope.requestHistory(history);
+    notifyListeners();
+  }
+
   String? _routeKey(Object route) {
     final custom = pageKey;
     if (custom != null) return custom(route as R);
@@ -258,7 +273,9 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     this.browserHistory = const NoBrowserHistory(),
     this.popFallback = HistoryAction.push,
     int? sessionId,
-  }) : _session = sessionId ?? DateTime.now().microsecondsSinceEpoch;
+  }) : _session = sessionId ?? DateTime.now().microsecondsSinceEpoch {
+    _adoptEntryAfterReload();
+  }
 
   final RoutingScope scope;
   final BrowserHistory browserHistory;
@@ -268,7 +285,11 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   /// like Flutter's default, or [HistoryAction.replace].
   final HistoryAction popFallback;
 
-  final int _session;
+  int _session;
+
+  // entries before an entry that are recorded in its state, so that the
+  // history this session knows about survives a reload
+  static const _recordedPredecessors = 32;
 
   final List<RouteInformation> _entries = [];
   int _index = -1;
@@ -354,9 +375,11 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     if (push) {
       if (_index >= 0) {
         // refresh the entry being left with the latest non-URL state
-        final leaving = RouteInformation(
-          uri: _entries[_index].uri,
-          state: _envelope(_serialOf(_entries[_index]), routeInformation.state),
+        final leaving = _entry(
+          _index,
+          _entries[_index].uri,
+          _serialOf(_entries[_index]),
+          routeInformation.state,
         );
         super.routerReportsNewRouteInformation(
           leaving,
@@ -365,9 +388,11 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         _entries[_index] = leaving;
       }
       _serial += 1;
-      final entry = RouteInformation(
-        uri: routeInformation.uri,
-        state: _envelope(_serial, routeInformation.state),
+      final entry = _entry(
+        _index + 1,
+        routeInformation.uri,
+        _serial,
+        routeInformation.state,
       );
       super.routerReportsNewRouteInformation(
         entry,
@@ -379,9 +404,11 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
       _index = _entries.length - 1;
     } else {
       final serial = _index >= 0 ? _serialOf(_entries[_index]) : ++_serial;
-      final entry = RouteInformation(
-        uri: routeInformation.uri,
-        state: _envelope(serial, routeInformation.state),
+      final entry = _entry(
+        _index < 0 ? 0 : _index,
+        routeInformation.uri,
+        serial,
+        routeInformation.state,
       );
       super.routerReportsNewRouteInformation(
         entry,
@@ -405,7 +432,7 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     if (_awaitedBacks.isNotEmpty) {
       if (serial == _awaitedBacks.first) {
         _awaitedBacks.removeAt(0);
-        _moveTo(serial);
+        _moveTo(serial, routeInformation.uri);
         // the app popped in-app and already shows this entry; an entry of
         // an earlier one of several queued traversals is never shown
         if (_awaitedBacks.isEmpty) {
@@ -420,8 +447,9 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
       _deferred = null;
     }
 
+    _restoredInitialState = null;
     if (own) {
-      _moveTo(serial);
+      _moveTo(serial, routeInformation.uri);
       return super.didPushRouteInformation(
         RouteInformation(uri: routeInformation.uri, state: state['h']),
       );
@@ -434,13 +462,84 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     );
   }
 
-  void _moveTo(Object? serial) {
+  // moves to the entry the browser delivered; serials grow along the
+  // history, so an entry not known yet (forward after a reload) is inserted
+  // at its place
+  void _moveTo(Object? serial, Uri uri) {
+    if (serial is! num) return;
     final i = _entries.indexWhere((e) => _serialOf(e) == serial);
-    if (i >= 0) _index = i;
+    if (i >= 0) {
+      _index = i;
+      return;
+    }
+    final at = _entries.indexWhere((e) => _serialOf(e) > serial);
+    final position = at < 0 ? _entries.length : at;
+    _entries.insert(position, _known(serial.toInt(), uri));
+    _index = position;
   }
 
-  Map<String, Object?> _envelope(int serial, Object? historyState) {
-    return {'fdr': 1, 's': _session, 'i': serial, 'h': historyState};
+  RouteInformation _known(int serial, Uri uri) =>
+      RouteInformation(uri: uri, state: {'fdr': 1, 's': _session, 'i': serial});
+
+  RouteInformation _entry(
+    int position,
+    Uri uri,
+    int serial,
+    Object? historyState,
+  ) {
+    final before = _entries.take(position).toList();
+    final recorded = before.skip(
+      before.length > _recordedPredecessors
+          ? before.length - _recordedPredecessors
+          : 0,
+    );
+    return RouteInformation(
+      uri: uri,
+      state: {
+        'fdr': 1,
+        's': _session,
+        'i': serial,
+        'h': historyState,
+        'b': [
+          for (final e in recorded) [_serialOf(e), e.uri.toString()],
+        ],
+      },
+    );
+  }
+
+  /// After a reload the engine starts with the path only. If the current
+  /// browser entry was written by this app, continue its session: its
+  /// non-URL state is applied with the initial route, and the recorded
+  /// earlier entries let an in-app pop still go back in the browser history.
+  void _adoptEntryAfterReload() {
+    final state = browserHistory.currentState;
+    if (state is! Map || state['fdr'] != 1) return;
+    final session = state['s'];
+    final serial = state['i'];
+    if (session is! num || serial is! num) return;
+    final initial = value;
+    _session = session.toInt();
+    _entries
+      ..clear()
+      ..addAll([
+        for (final recorded in (state['b'] as List?) ?? const [])
+          if (recorded case [final num s, final String url])
+            _known(s.toInt(), Uri.parse(url)),
+        _known(serial.toInt(), initial.uri),
+      ]);
+    _index = _entries.length - 1;
+    _serial = _entries.map(_serialOf).reduce((a, b) => a > b ? a : b);
+    _restoredInitialState = state['h'];
+  }
+
+  Object? _restoredInitialState;
+
+  @override
+  RouteInformation get value {
+    final restored = _restoredInitialState;
+    final current = super.value;
+    if (restored == null || current.state != null) return current;
+    return RouteInformation(uri: current.uri, state: restored);
   }
 
   static int _serialOf(RouteInformation entry) {

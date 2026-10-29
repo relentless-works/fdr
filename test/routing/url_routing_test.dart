@@ -16,6 +16,9 @@ class FakeBrowserHistory implements BrowserHistory {
 
   @override
   void go(int delta) => deltas.add(delta);
+
+  @override
+  Object? currentState;
 }
 
 typedef Report = ({String uri, bool replace, Object? state});
@@ -826,5 +829,101 @@ void main() {
       expect(url(router), '/settings');
       expect(history.deltas, [-1]);
     });
+  });
+
+  group('reload', () {
+    testWidgets("the entry's non-URL state comes back", (tester) async {
+      await pumpApp(tester, initialUrl: '/orders');
+      await tester.tap(find.byKey(const Key('scroll')));
+      await tester.tap(find.byKey(const Key('open-42')));
+      await tester.pumpAndSettle();
+      final listEntry = reports.lastWhere(
+        (r) => r.uri == '/orders' && (r.state! as Map)['h'] != null,
+      );
+
+      // reload on the list entry: the engine passes only the path
+      await tester.pumpWidget(const SizedBox());
+      final history = FakeBrowserHistory()..currentState = listEntry.state;
+      await pumpApp(tester, initialUrl: '/orders', browserHistory: history);
+      expect(find.text('scroll 120.0'), findsOneWidget);
+    });
+
+    testWidgets('an in-app pop still goes back in the browser history', (
+      tester,
+    ) async {
+      final history = FakeBrowserHistory()
+        ..currentState = {
+          'fdr': 1,
+          's': 7,
+          'i': 2,
+          'h': null,
+          'b': [
+            [1, '/orders'],
+          ],
+        };
+      final router = await pumpApp(
+        tester,
+        initialUrl: '/orders/42',
+        browserHistory: history,
+      );
+      expect(router.provider.shadowHistory, ['/orders', '/orders/42']);
+      // no new entry for the reloaded page
+      expect(reports.every((r) => r.replace), isTrue);
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(url(router), '/orders');
+      expect(history.deltas, [-1]);
+    });
+
+    testWidgets('forward reaches entries the reload did not know', (
+      tester,
+    ) async {
+      final history = FakeBrowserHistory()
+        ..currentState = {'fdr': 1, 's': 7, 'i': 1, 'h': null, 'b': <Object>[]};
+      final router = await pumpApp(
+        tester,
+        initialUrl: '/orders',
+        browserHistory: history,
+      );
+      await browserNavigatesTo(
+        tester,
+        '/orders/42',
+        state: {'fdr': 1, 's': 7, 'i': 2, 'h': null},
+      );
+      expect(find.text('Order 42'), findsOneWidget);
+      expect(router.provider.shadowHistory, ['/orders', '/orders/42']);
+      expect(router.provider.shadowIndex, 1);
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(history.deltas, [-1]);
+    });
+  });
+
+  testWidgets('a typed route from outside the tree navigates like a link', (
+    tester,
+  ) async {
+    final history = FakeBrowserHistory();
+    final router = await pumpApp(
+      tester,
+      initialUrl: '/orders',
+      browserHistory: history,
+    );
+    // e.g. a push notification handler
+    router.delegate.navigate(const HomeAt(OrdersAt(OrderItem(42, 3))));
+    await tester.pumpAndSettle();
+    expect(find.text('Item 3 of 42'), findsOneWidget);
+    expect(
+      (reports.last.uri, reports.last.replace),
+      ('/orders/42/items/3', false),
+    );
+    expect(OrdersNavigatorState.created, 1);
+
+    // a shorter route is a back
+    router.delegate.navigate(const HomeAt(OrdersAt(OrderList())));
+    await tester.pumpAndSettle();
+    expect(url(router), '/orders');
+    expect(history.deltas, [-1]);
   });
 }

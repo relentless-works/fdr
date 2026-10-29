@@ -7,6 +7,10 @@ abstract interface class BrowserHistory {
   bool get supportsTraversal;
   void go(int delta);
 
+  /// The state the app stored in the current entry. The engine hands only
+  /// the path to the framework after a reload, but the entry still holds it.
+  Object? get currentState;
+
   /// `window.history` on the web, [NoBrowserHistory] elsewhere.
   static BrowserHistory platform() => impl.platformBrowserHistory();
 }
@@ -19,4 +23,7 @@ final class NoBrowserHistory implements BrowserHistory {
 
   @override
   void go(int delta) {}
+
+  @override
+  Object? get currentState => null;
 }
