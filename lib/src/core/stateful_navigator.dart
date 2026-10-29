@@ -85,6 +85,21 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
     updatePages();
   }
 
+  /// Rebuilds this navigator whenever [listenable] notifies, until this
+  /// state is disposed: for navigation that follows app state owned
+  /// elsewhere (a session, a repository), which [build] then reads directly.
+  /// Call it in [initState]; [history] applies to the resulting changes.
+  void watch(
+    Listenable listenable, {
+    HistoryAction history = HistoryAction.auto,
+  }) {
+    void rebuild() => setState(() {}, history: history);
+    listenable.addListener(rebuild);
+    _unwatch.add(() => listenable.removeListener(rebuild));
+  }
+
+  final _unwatch = <VoidCallback>[];
+
   /// Typed in-app navigation: applies [route] to this navigator and its
   /// mounted children, exactly like an incoming URL.
   void navigate(R route, {HistoryAction history = HistoryAction.auto}) {
@@ -103,6 +118,10 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
 
   @mustCallSuper
   void dispose() {
+    for (final unwatch in _unwatch) {
+      unwatch();
+    }
+    _unwatch.clear();
     _mounted = false;
     FdrHotReload.listenable.removeListener(updatePages);
     _pageMapper.dispose();
