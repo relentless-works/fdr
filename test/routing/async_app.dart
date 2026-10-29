@@ -51,10 +51,25 @@ final class FakeApi {
 
 var api = FakeApi();
 
-// --- routes and codecs -------------------------------------------------------
+// --- routes -------------------------------------------------------------------
 
-sealed class ShopRoute {
+sealed class ShopRoute extends NavRoute {
   const ShopRoute();
+
+  static ShopRoute fromUrl(Url url) => switch (url.segments) {
+    [] || ['orders'] => const OrderListRoute(),
+    ['orders', final int id, ...] => OrderAt(
+      id,
+      OrderRoute.fromUrl(url.rest(2)),
+    ),
+    _ => throw NotFound(url),
+  };
+
+  @override
+  Url toUrl() => switch (this) {
+    OrderListRoute() => const Url(['orders']),
+    OrderAt(:final id, :final child) => Url(['orders', id]) + child.toUrl(),
+  };
 }
 
 final class OrderListRoute extends ShopRoute {
@@ -62,13 +77,28 @@ final class OrderListRoute extends ShopRoute {
 }
 
 final class OrderAt extends ShopRoute {
-  const OrderAt(this.id, this.child);
+  const OrderAt(this.id, [this.child = const OrderOverview()]);
   final int id;
   final OrderRoute child;
 }
 
-sealed class OrderRoute {
+sealed class OrderRoute extends NavRoute {
   const OrderRoute();
+
+  static OrderRoute fromUrl(Url url) => switch (url.segments) {
+    [] => const OrderOverview(),
+    ['items', final int item, ...] => ItemAt(
+      item,
+      ItemRoute.fromUrl(url.rest(2)),
+    ),
+    _ => throw NotFound(url),
+  };
+
+  @override
+  Url toUrl() => switch (this) {
+    OrderOverview() => const Url([]),
+    ItemAt(:final item, :final child) => Url(['items', item]) + child.toUrl(),
+  };
 }
 
 final class OrderOverview extends OrderRoute {
@@ -76,13 +106,25 @@ final class OrderOverview extends OrderRoute {
 }
 
 final class ItemAt extends OrderRoute {
-  const ItemAt(this.item, this.child);
+  const ItemAt(this.item, [this.child = const ItemOverview()]);
   final int item;
   final ItemRoute child;
 }
 
-sealed class ItemRoute {
+sealed class ItemRoute extends NavRoute {
   const ItemRoute();
+
+  static ItemRoute fromUrl(Url url) => switch (url.segments) {
+    [] => const ItemOverview(),
+    ['reviews'] => const ItemReviews(),
+    _ => throw NotFound(url),
+  };
+
+  @override
+  Url toUrl() => switch (this) {
+    ItemOverview() => const Url([]),
+    ItemReviews() => const Url(['reviews']),
+  };
 }
 
 final class ItemOverview extends ItemRoute {
@@ -92,54 +134,6 @@ final class ItemOverview extends ItemRoute {
 final class ItemReviews extends ItemRoute {
   const ItemReviews();
 }
-
-final itemOverview = Case<ItemRoute, ItemOverview>(
-  end.iso(to: (_) => const ItemOverview(), from: (_) => ()),
-);
-final itemReviews = Case<ItemRoute, ItemReviews>(
-  lit('reviews').then(end).iso(to: (_) => const ItemReviews(), from: (_) => ()),
-);
-final itemCodec = SumCodec<ItemRoute>(
-  cases: [itemOverview, itemReviews],
-  select: (r) => switch (r) {
-    final ItemOverview o => itemOverview.bind(o),
-    final ItemReviews v => itemReviews.bind(v),
-  },
-);
-
-final orderOverview = Case<OrderRoute, OrderOverview>(
-  end.iso(to: (_) => const OrderOverview(), from: (_) => ()),
-);
-final itemAt = Case<OrderRoute, ItemAt>(
-  lit('items')
-      .then(Seg.int.and(itemCodec))
-      .iso(to: (r) => ItemAt(r.$1, r.$2), from: (r) => (r.item, r.child)),
-);
-final orderCodec = SumCodec<OrderRoute>(
-  cases: [orderOverview, itemAt],
-  select: (r) => switch (r) {
-    final OrderOverview o => orderOverview.bind(o),
-    final ItemAt i => itemAt.bind(i),
-  },
-);
-
-final orderList = Case<ShopRoute, OrderListRoute>(
-  lit('orders')
-      .then(end)
-      .iso(to: (_) => const OrderListRoute(), from: (_) => ()),
-);
-final orderAt = Case<ShopRoute, OrderAt>(
-  lit('orders')
-      .then(Seg.int.and(orderCodec))
-      .iso(to: (r) => OrderAt(r.$1, r.$2), from: (r) => (r.id, r.child)),
-);
-final shopCodec = SumCodec<ShopRoute>(
-  cases: [orderList, orderAt, alias(end, (_) => const OrderListRoute())],
-  select: (r) => switch (r) {
-    final OrderListRoute l => orderList.bind(l),
-    final OrderAt o => orderAt.bind(o),
-  },
-);
 
 // --- navigators --------------------------------------------------------------
 
@@ -153,46 +147,53 @@ class ShopNavigator extends StatefulNavigator<ShopRoute> {
 class ShopNavigatorState
     extends StatefulNavigatorState<ShopNavigator, ShopRoute> {
   int? selected;
+  OrderRoute? orderRoute;
   Order? preloaded;
 
   @override
   void applyRoute(ShopRoute route) {
-    selected = switch (route) {
-      OrderListRoute() => null,
-      OrderAt(:final id) => id,
-    };
+    switch (route) {
+      case OrderListRoute():
+        selected = null;
+        orderRoute = null;
+      case OrderAt(:final id, :final child):
+        selected = id;
+        orderRoute = child;
+    }
     if (preloaded?.id != selected) preloaded = null;
   }
 
   @override
-  List<DeclarativeNavigatable<ShopRoute>> build() => [
-    OrderListPage(
-      onOpen: (id) => navigate(OrderAt(id, const OrderOverview())),
-      onOpenLoaded: (order) {
-        preloaded = order;
-        navigate(OrderAt(order.id, const OrderOverview()));
-      },
-    ).page(onPop: null, route: const OrderListRoute()),
+  List<NavEntry<ShopRoute>> build() => [
+    NavPage(
+      route: const OrderListRoute(),
+      child: OrderListPage(
+        onOpen: (id) => open(OrderAt(id)),
+        onOpenLoaded: (order) {
+          preloaded = order;
+          open(OrderAt(order.id));
+        },
+      ),
+    ),
     if (selected case final id?)
-      AsyncNavigator<Order, OrderRoute>(
-            key: ValueKey(id),
-            load: () => api.order(id),
-            initialData: preloaded,
-            onDispose: (order) => api.releasedOrders.add(order.title),
-            loading: const LoadingView('Loading order'),
-            failed: (error, retry) => ErrorView(error: error, retry: retry),
-            builder: (order, reload) =>
-                OrderNavigator(order: order, reload: reload),
-          )
-          .mount(
-            embed: (child) => OrderAt(id, child),
-            unwrap: (route) => switch (route) {
-              OrderAt(id: final routeId, :final child) when routeId == id =>
-                child,
-              _ => null,
-            },
-          )
-          .poppable(onPop: () => setState(() => selected = null)),
+      NestedNavigator(
+        at: (route) => OrderAt(id, route),
+        route: orderRoute,
+        onPop: () => setState(() {
+          selected = null;
+          orderRoute = null;
+        }),
+        child: FutureNavigator<Order, OrderRoute>(
+          key: ValueKey(id),
+          load: () => api.order(id),
+          initialData: preloaded,
+          onDispose: (order) => api.releasedOrders.add(order.title),
+          loading: const LoadingView('Loading order'),
+          error: (error, retry) => ErrorView(error: error, retry: retry),
+          builder: (order, reload) =>
+              OrderNavigator(order: order, reload: reload),
+        ),
+      ),
   ];
 }
 
@@ -209,6 +210,7 @@ class OrderNavigatorState
     extends StatefulNavigatorState<OrderNavigator, OrderRoute> {
   static int created = 0;
   int? selectedItem;
+  ItemRoute? itemRoute;
 
   @override
   void initState() {
@@ -218,39 +220,44 @@ class OrderNavigatorState
 
   @override
   void applyRoute(OrderRoute route) {
-    selectedItem = switch (route) {
-      OrderOverview() => null,
-      ItemAt(:final item) => item,
-    };
+    switch (route) {
+      case OrderOverview():
+        selectedItem = null;
+        itemRoute = null;
+      case ItemAt(:final item, :final child):
+        selectedItem = item;
+        itemRoute = child;
+    }
   }
 
   @override
-  List<DeclarativeNavigatable<OrderRoute>> build() {
+  List<NavEntry<OrderRoute>> build() {
     final order = navigator.order;
     return [
-      OrderPage(
-        order: order,
-        onItem: (item) => navigate(ItemAt(item, const ItemOverview())),
-        onRefresh: navigator.reload,
-      ).page(onPop: null, route: const OrderOverview()),
+      NavPage(
+        route: const OrderOverview(),
+        child: OrderPage(
+          order: order,
+          onItem: (item) => open(ItemAt(item)),
+          onRefresh: navigator.reload,
+        ),
+      ),
       if (selectedItem case final item?)
-        AsyncNavigator<Item, ItemRoute>(
-              key: ValueKey(item),
-              load: () => api.item(order.id, item),
-              loading: const LoadingView('Loading item'),
-              failed: (error, retry) => ErrorView(error: error, retry: retry),
-              builder: (item, _) => ItemNavigator(item: item),
-            )
-            .mount(
-              embed: (child) => ItemAt(item, child),
-              unwrap: (route) => switch (route) {
-                ItemAt(item: final routeItem, :final child)
-                    when routeItem == item =>
-                  child,
-                _ => null,
-              },
-            )
-            .poppable(onPop: () => setState(() => selectedItem = null)),
+        NestedNavigator(
+          at: (route) => ItemAt(item, route),
+          route: itemRoute,
+          onPop: () => setState(() {
+            selectedItem = null;
+            itemRoute = null;
+          }),
+          child: FutureNavigator<Item, ItemRoute>(
+            key: ValueKey(item),
+            load: () => api.item(order.id, item),
+            loading: const LoadingView('Loading item'),
+            error: (error, retry) => ErrorView(error: error, retry: retry),
+            builder: (item, _) => ItemNavigator(item: item),
+          ),
+        ),
     ];
   }
 }
@@ -271,15 +278,19 @@ class ItemNavigatorState
   void applyRoute(ItemRoute route) => reviews = route is ItemReviews;
 
   @override
-  List<DeclarativeNavigatable<ItemRoute>> build() => [
-    ItemPage(
-      item: navigator.item,
-      onReviews: () => navigate(const ItemReviews()),
-    ).page(onPop: null, route: const ItemOverview()),
+  List<NavEntry<ItemRoute>> build() => [
+    NavPage(
+      route: const ItemOverview(),
+      child: ItemPage(
+        item: navigator.item,
+        onReviews: () => open(const ItemReviews()),
+      ),
+    ),
     if (reviews)
-      ReviewsPage(item: navigator.item).page(
-        onPop: () => setState(() => reviews = false),
+      NavPage(
         route: const ItemReviews(),
+        onPop: () => setState(() => reviews = false),
+        child: ReviewsPage(item: navigator.item),
       ),
   ];
 }

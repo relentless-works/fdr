@@ -1,39 +1,24 @@
-/// Declarative (state-driven) routing for Flutter, with a typed URL layer.
+/// Declarative (state-driven) routing for Flutter, with typed URLs.
 library;
 
 export 'src/core/core.dart'
     show
-        DeclarativeNavigatable,
-        DeclarativeNavigatablePage,
-        FdrHotReload,
+        CustomPage,
+        CustomPageBuilder,
+        DeclarativeNavigator,
+        DialogPage,
         HistoryAction,
-        KeyedPage,
-        MountNavigator,
-        MountNavigatorWithLens,
-        MountedNavigatable,
-        RouteLens,
-        NavigatableToPageMapper,
-        PageBuilder,
-        PopOverwriteNavigatable,
-        Poppable,
-        RoutingScope,
-        ShellBuilder,
-        ShellNavigatable,
+        NavEntry,
+        NavPage,
+        NestedNavigator,
+        RouteLink,
+        RouteLinkBuilder,
         StatefulNavigator,
         StatefulNavigatorState,
-        StatelessNavigator;
-export 'src/async_navigator.dart' show AsyncChildBuilder, AsyncNavigator;
-export 'src/declarative_navigator.dart' show DeclarativeNavigator;
-export 'src/pages/fdr_page.dart' show FDRPage;
+        StatelessNavigator,
+        TabsBuilder,
+        TabsPage;
+export 'src/future_navigator.dart' show FutureChildBuilder, FutureNavigator;
 export 'src/routing/browser_history.dart' show BrowserHistory, NoBrowserHistory;
-export 'src/routing/fdr_router.dart'
-    show
-        FdrRouteInformationParser,
-        FdrRouteInformationProvider,
-        FdrRouter,
-        FdrRouterDelegate,
-        RouteSnapshot;
-export 'src/routing/lens_codec.dart';
-export 'src/routing/url_codec.dart';
-export 'src/widget_extensions.dart'
-    show DeclarativeNavigatableFromWidget, shell;
+export 'src/routing/fdr_router.dart' show FdrRouter, RouteSnapshot;
+export 'src/routing/url.dart' show NavRoute, NotFound, Url;

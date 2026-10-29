@@ -47,4 +47,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Order #7 (v1)'), findsOneWidget);
   });
+
+  testWidgets('the order list filter lives in the query', (tester) async {
+    await pumpShop(tester, '/orders?sorting=name&status=open');
+    expect(find.text('Order #12'), findsOneWidget);
+    expect(find.text('Order #1'), findsNothing);
+    // sorted by name: #12 comes before #3
+    expect(
+      tester.getTopLeft(find.text('Order #12')).dy,
+      lessThan(tester.getTopLeft(find.text('Order #3')).dy),
+    );
+  });
+
+  testWidgets('an older spelling opens the order', (tester) async {
+    await pumpShop(tester, '/order/7');
+    await tester.pump(loadTime);
+    await tester.pumpAndSettle();
+    expect(find.text('Order #7 (v1)'), findsOneWidget);
+  });
+
+  testWidgets('a failed cancel shows a dialog that OK closes', (tester) async {
+    await pumpShop(tester, '/orders/7');
+    await tester.pump(loadTime);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel order'));
+    await tester.pump(loadTime);
+    await tester.pumpAndSettle();
+    expect(find.text('Could not cancel'), findsOneWidget);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not cancel'), findsNothing);
+    expect(find.text('Order #7 (v1)'), findsOneWidget);
+  });
 }

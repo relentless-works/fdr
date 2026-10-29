@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fdr/fdr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,11 +37,11 @@ class _AuthNavigatorState
   }
 
   @override
-  List<DeclarativeNavigatable<Never>> build() => [
+  List<NavEntry<Never>> build() => [
     if (navigator.session.loggedIn)
-      const Text('home').page(onPop: null)
+      const NavPage(child: Text('home'))
     else
-      const Text('login').page(onPop: null),
+      const NavPage(child: Text('login')),
   ];
 }
 
@@ -73,4 +75,58 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     expect(session.watched, isFalse);
   });
+
+  testWidgets('a listened stream drives the pages until disposal', (
+    tester,
+  ) async {
+    final session = _StreamSession();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DeclarativeNavigator(
+          navigator: _StreamAuthNavigator(session: session),
+        ),
+      ),
+    );
+    expect(find.text('login'), findsOneWidget);
+
+    session.logIn();
+    await tester.pumpAndSettle();
+    expect(find.text('home'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    expect(session.controller.hasListener, isFalse);
+  });
+}
+
+// a bloc-like store: state plus a stream of changes
+class _StreamSession {
+  final controller = StreamController<bool>.broadcast(sync: true);
+  bool loggedIn = false;
+
+  void logIn() {
+    loggedIn = true;
+    controller.add(loggedIn);
+  }
+}
+
+class _StreamAuthNavigator extends StatefulNavigator<Never> {
+  const _StreamAuthNavigator({required this.session});
+  final _StreamSession session;
+
+  @override
+  _StreamAuthNavigatorState createState() => _StreamAuthNavigatorState();
+}
+
+class _StreamAuthNavigatorState
+    extends StatefulNavigatorState<_StreamAuthNavigator, Never> {
+  @override
+  void initState() {
+    super.initState();
+    listen(navigator.session.controller.stream);
+  }
+
+  @override
+  List<NavEntry<Never>> build() => [
+    NavPage(child: Text(navigator.session.loggedIn ? 'home' : 'login')),
+  ];
 }

@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 
 class OverlayPortalNavigator extends StatelessNavigator<Never> {
   @override
-  List<DeclarativeNavigatable<Never>> build() {
-    return [
-      const OverlayTogglePage().page(onPop: null),
-    ];
+  List<NavEntry<Never>> build() {
+    return [const NavPage(child: OverlayTogglePage())];
   }
 }
 

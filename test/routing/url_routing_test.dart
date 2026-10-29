@@ -4,6 +4,7 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:url_launcher/link.dart';
 
 import 'example_app.dart';
 
@@ -54,8 +55,8 @@ class _AppState extends State<App> {
     super.initState();
     App.router = FdrRouter<AppRoute>(
       root: AppNavigator(loggedIn: widget.loggedIn),
-      codec: appCodec,
-      notFound: NotFoundRoute.new,
+      fromUrl: AppRoute.fromUrl,
+      notFound: (url) => NotFoundPage(url: url),
       browserHistory: widget.browserHistory,
       sessionId: 1,
     );
@@ -107,7 +108,7 @@ Map<String, Object?> envelope(int serial, [Object? h]) => {
   'h': h,
 };
 
-String url(FdrRouter<AppRoute> router) => router.delegate.currentUrl!;
+String url(FdrRouter<AppRoute> router) => router.currentUrl!;
 
 void main() {
   setUp(() {
@@ -139,6 +140,9 @@ void main() {
   });
 
   test('C10 golden URL table and round trips', () {
+    String print(AppRoute route) => route.toUrl().toString();
+    AppRoute parse(String url) => AppRoute.fromUrl(Url.parse(Uri.parse(url)));
+
     const table = <(AppRoute, String)>[
       (LoginRoute(), '/login'),
       (
@@ -152,38 +156,18 @@ void main() {
       (HomeAt(SettingsAt(SettingsProfile())), '/settings/profile'),
     ];
     for (final (route, expected) in table) {
-      expect(appCodec.encode(route).toString(), expected, reason: '$route');
-      final parsed = appCodec.decode(Uri.parse(expected));
-      expect(parsed, isNotNull, reason: expected);
-      expect(appCodec.encode(parsed!).toString(), expected, reason: expected);
+      expect(print(route), expected, reason: '$route');
+      expect(print(parse(expected)), expected, reason: expected);
     }
-    // aliases parse to canonical routes
-    expect(
-      appCodec.encode(appCodec.decode(Uri.parse('/'))!).toString(),
-      '/orders',
-    );
-    expect(
-      appCodec.encode(appCodec.decode(Uri.parse('/order/42'))!).toString(),
-      '/orders/42',
-    );
-    expect(
-      appCodec.encode(appCodec.decode(Uri.parse('/orders/42/'))!).toString(),
-      '/orders/42',
-    );
-    for (final bad in [
-      '/orders/abc',
-      '/nope',
-      '/orders/1/x',
-      '/login/x',
-      '/login?next=%2Fnope',
-    ]) {
-      expect(appCodec.decode(Uri.parse(bad)), isNull, reason: bad);
+    // older and non-canonical spellings parse to canonical routes
+    expect(print(parse('/')), '/orders');
+    expect(print(parse('/order/42')), '/orders/42');
+    expect(print(parse('/orders/42/')), '/orders/42');
+    for (final bad in ['/orders/abc', '/nope', '/orders/1/x', '/login/x']) {
+      expect(() => parse(bad), throwsA(isA<NotFound>()), reason: bad);
     }
-    // not-found routes print the typed-in URL back
-    expect(
-      appCodec.encode(NotFoundRoute(Uri.parse('/nope?x=1'))).toString(),
-      '/nope?x=1',
-    );
+    // a query value that does not parse is dropped, not an error
+    expect(print(parse('/login?next=%2Fnope')), '/login');
   });
 
   testWidgets('C2 cold start on a deep URL builds the stack top-down', (
@@ -265,19 +249,17 @@ void main() {
     },
   );
 
-  testWidgets('C3 a state-only change (popup) and a wizard-style replace', (
-    tester,
-  ) async {
+  testWidgets('C3 a state-only change (dialog) keeps the URL', (tester) async {
     final router = await pumpApp(tester, initialUrl: '/orders/42');
     await tester.tap(find.byKey(const Key('popup')));
     await tester.pumpAndSettle();
     expect(find.text('Popup content'), findsOneWidget);
-    // C4: the popup has no URL, the URL stays at the page below
+    // C4: the dialog has no URL, the URL stays at the page below
     expect(url(router), '/orders/42');
     expect(reports.every((r) => r.uri == '/orders/42' && r.replace), isTrue);
     expect(router.provider.shadowHistory, ['/orders/42']);
 
-    // C11/C4: system back dismisses the popup through its onPop
+    // C11/C4: system back dismisses the dialog through its onPop
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('Popup content'), findsNothing);
@@ -516,8 +498,7 @@ void main() {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
     final router = FdrRouter<FixedRoute>(
       root: const FixedNavigator(),
-      codec: fixedCodec,
-      notFound: (_) => const FixedTop(),
+      fromUrl: FixedRoute.fromUrl,
     );
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pump();
@@ -664,8 +645,7 @@ void main() {
       tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
       final router = FdrRouter<FixedRoute>(
         root: GuardedNavigator(guarded: guarded),
-        codec: fixedCodec,
-        notFound: (_) => const FixedTop(),
+        fromUrl: FixedRoute.fromUrl,
       );
       await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
       await tester.pump();
@@ -687,26 +667,6 @@ void main() {
     await browserNavigatesTo(tester, 'https://shop.example/orders/7');
     expect(url(router), '/orders/7');
     expect(OrdersNavigatorState.created, 1);
-  });
-
-  test('parsing backtracks: a prefix match does not hide a full match', () {
-    final a = Case<String, String>(
-      lit('a').iso(to: (_) => 'a', from: (_) => ()),
-    );
-    final ab = Case<String, String>(
-      lit('a').then(lit('b')).iso(to: (_) => 'ab', from: (_) => ()),
-    );
-    final codec = SumCodec<String>(
-      cases: [a, ab],
-      select: (v) => v == 'a' ? a.bind(v) : ab.bind(v),
-    );
-    expect(codec.decode(Uri.parse('/a')), 'a');
-    expect(codec.decode(Uri.parse('/a/b')), 'ab');
-    // also through nesting: the orders sum is tried inside the app sum
-    expect(
-      appCodec.encode(appCodec.decode(Uri.parse('/orders/42/items/3'))!).path,
-      '/orders/42/items/3',
-    );
   });
 
   testWidgets('closing two levels at once goes back two entries', (
@@ -911,7 +871,7 @@ void main() {
       browserHistory: history,
     );
     // e.g. a push notification handler
-    router.delegate.navigate(const HomeAt(OrdersAt(OrderItem(42, 3))));
+    router.open(const HomeAt(OrdersAt(OrderItem(42, 3))));
     await tester.pumpAndSettle();
     expect(find.text('Item 3 of 42'), findsOneWidget);
     expect(
@@ -921,9 +881,217 @@ void main() {
     expect(OrdersNavigatorState.created, 1);
 
     // a shorter route is a back
-    router.delegate.navigate(const HomeAt(OrdersAt(OrderList())));
+    router.open(const HomeAt(OrdersAt(OrderList())));
     await tester.pumpAndSettle();
     expect(url(router), '/orders');
     expect(history.deltas, [-1]);
   });
+
+  group('not found', () {
+    testWidgets('a URL that exists only in part shows the nearest page', (
+      tester,
+    ) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/42/nope');
+      expect(find.text('No page at /orders/42/nope'), findsOneWidget);
+      expect(url(router), '/orders/42/nope');
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Order 42'), findsOneWidget);
+      expect(url(router), '/orders/42');
+    });
+
+    testWidgets('a segment of the wrong type falls back to the level above', (
+      tester,
+    ) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/abc');
+      expect(find.text('No page at /orders/abc'), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(url(router), '/orders');
+    });
+
+    testWidgets('a link replaces the not-found page', (tester) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/42');
+      await browserNavigatesTo(tester, '/orders/42/nope');
+      expect(find.text('No page at /orders/42/nope'), findsOneWidget);
+      router.open(const HomeAt(SettingsAt(SettingsRoot())));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('No page at'), findsNothing);
+      expect(url(router), '/settings');
+    });
+  });
+
+  group('links', () {
+    Link linkOf(WidgetTester tester, String key) => tester.widget<Link>(
+      find.ancestor(of: find.byKey(Key(key)), matching: find.byType(Link)),
+    );
+
+    testWidgets('a link prints its URL through the parents and opens it', (
+      tester,
+    ) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/42');
+      // a route of the orders navigator, placed at /orders by its parent
+      expect('${linkOf(tester, 'link-item-7').uri}', '/orders/42/items/7');
+      await tester.tap(find.byKey(const Key('link-item-7')));
+      await tester.pumpAndSettle();
+      expect(find.text('Item 7 of 42'), findsOneWidget);
+      expect(url(router), '/orders/42/items/7');
+      expect((reports.last.uri, reports.last.replace), (url(router), false));
+      expect(OrdersNavigatorState.created, 1);
+    });
+
+    testWidgets('a link of the root route type resolves at the root', (
+      tester,
+    ) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/42');
+      expect('${linkOf(tester, 'link-profile').uri}', '/settings/profile');
+      await tester.tap(find.byKey(const Key('link-profile')));
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsOneWidget);
+      expect(url(router), '/settings/profile');
+      // the orders tab was not addressed and keeps its page
+      await tester.tap(find.byKey(const Key('nav-orders')));
+      await tester.pumpAndSettle();
+      expect(find.text('Order 42'), findsOneWidget);
+    });
+
+    testWidgets('a link to a navigator that is not above it is an error', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(home: DeclarativeNavigator(navigator: _LinkElsewhere())),
+      );
+      final error = tester.takeException();
+      expect(
+        error,
+        isA<FlutterError>().having(
+          (e) => e.message,
+          'message',
+          contains('No navigator for OrderDetail above this link'),
+        ),
+      );
+    });
+
+    testWidgets('without a router, a link opens without an href', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: DeclarativeNavigator(
+            navigator: SettingsNavigator(onSwitchTab: _ignore),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('profile')));
+      await tester.pumpAndSettle();
+      expect(find.text('Profile body'), findsOneWidget);
+      expect(find.byType(Link), findsNothing);
+    });
+  });
+
+  testWidgets('a dialog closed with Navigator.pop stays closed', (
+    tester,
+  ) async {
+    final router = await pumpApp(tester, initialUrl: '/orders/42');
+    await tester.tap(find.byKey(const Key('popup')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('close-popup')));
+    await tester.pumpAndSettle();
+    expect(find.text('Popup content'), findsNothing);
+    // the state was changed through onPop: a rebuild does not bring it back
+    final orders = OrdersNavigatorState.latest!;
+    expect(orders.showPopup, isFalse);
+    await tester.tap(find.byKey(const Key('bump')));
+    await tester.pumpAndSettle();
+    expect(find.text('Popup content'), findsNothing);
+    expect(url(router), '/orders/42');
+  });
+
+  test('a fromUrl of another route type than the root is an error', () {
+    expect(
+      () => FdrRouter(
+        root: const AppNavigator(loggedIn: true),
+        fromUrl: OrdersRoute.fromUrl,
+      ),
+      throwsA(
+        isA<AssertionError>().having(
+          (e) => e.message,
+          'message',
+          contains('fromUrl has to return the root\'s route type'),
+        ),
+      ),
+    );
+  });
+
+  testWidgets('a route whose URL leads elsewhere is reported in debug', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    final router = FdrRouter<_Drift>(
+      root: const _DriftNavigator(),
+      fromUrl: _Drift.fromUrl,
+    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
+    await tester.pump();
+    expect(
+      tester.takeException(),
+      isA<FlutterError>().having(
+        (e) => e.message,
+        'message',
+        contains(
+          '_Start prints /start, which parses to a route that prints '
+          '/other',
+        ),
+      ),
+    );
+  });
+}
+
+void _ignore(HomeTab _) {}
+
+// a page with a link of a route type no navigator above it has
+class _LinkElsewhere extends StatelessNavigator<Never> {
+  @override
+  List<NavEntry<Never>> build() => [
+    NavPage(
+      child: RouteLink(
+        route: const OrderDetail(1),
+        builder: (context, open) => const Text('link'),
+      ),
+    ),
+  ];
+}
+
+// toUrl and fromUrl disagree: /start parses to the other route
+sealed class _Drift extends NavRoute {
+  const _Drift();
+
+  static _Drift fromUrl(Url url) => switch (url.segments) {
+    [] => const _Start(),
+    ['start' || 'other'] => const _Other(),
+    _ => throw NotFound(url),
+  };
+
+  @override
+  Url toUrl() => switch (this) {
+    _Start() => const Url(['start']),
+    _Other() => const Url(['other']),
+  };
+}
+
+final class _Start extends _Drift {
+  const _Start();
+}
+
+final class _Other extends _Drift {
+  const _Other();
+}
+
+class _DriftNavigator extends StatelessNavigator<_Drift> {
+  const _DriftNavigator();
+
+  @override
+  List<NavEntry<_Drift>> build() => [
+    const NavPage(route: _Start(), child: Text('start')),
+  ];
 }

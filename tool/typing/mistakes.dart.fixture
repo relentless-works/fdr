@@ -5,8 +5,22 @@ import 'package:fdr/fdr.dart';
 import 'package:fdr_example/url_routing/shop.dart';
 import 'package:flutter/widgets.dart';
 
-sealed class R {
+sealed class R extends NavRoute {
   const R();
+
+  static R fromUrl(Url url) => switch (url.segments) {
+    [final int id] => A(id),
+    // a field retyped from int to String without updating fromUrl
+    ['sku', final int sku] => S(sku), // error: argument_type_not_assignable
+    _ => throw NotFound(url),
+  };
+
+  // a new route case nobody prints
+  @override
+  Url toUrl() => switch (this) { // error: non_exhaustive_switch_expression
+    A(:final id) => Url([id]),
+    S(:final sku) => Url(['sku', sku]),
+  };
 }
 
 final class A extends R {
@@ -14,64 +28,54 @@ final class A extends R {
   final int id;
 }
 
+final class S extends R {
+  const S(this.sku);
+  final String sku;
+}
+
 final class B extends R {
   const B();
 }
 
-final class C extends R {
-  const C();
-}
-
-final a = Case<R, A>(Seg.int.atEnd.iso(to: A.new, from: (r) => r.id));
-final b = Case<R, B>(end.iso(to: (_) => const B(), from: (_) => ()));
-
-// a new route case nobody prints
-final missingCase = SumCodec<R>(
-  cases: [a, b],
-  select: (r) => switch (r) { // error: non_exhaustive_switch_expression
-    final A x => a.bind(x),
-    final B y => b.bind(y),
-  },
-);
-
-// printers swapped between cases
-final swapped = SumCodec<R>(
-  cases: [a, b],
-  select: (r) => switch (r) {
-    final A x => b.bind(x), // error: argument_type_not_assignable
-    final B y => a.bind(y), // error: argument_type_not_assignable
-    C() => throw UnimplementedError(),
-  },
-);
-
-// a route field retyped from int to String without updating its codec
-final retyped = Case<R, A>(
-  Seg.string.atEnd.iso(to: A.new, from: (r) => r.id), // error: argument_type_not_assignable, return_of_invalid_type_from_closure
-);
-
 // a page addressed by another navigator's route type
-List<DeclarativeNavigatable<OrdersRoute>> wrongPage() => [
-  const Text('x').page(onPop: null, route: const Profile()), // error: argument_type_not_assignable
+List<NavEntry<OrdersRoute>> wrongPage() => [
+  NavPage(route: const Profile(), child: const Text('x')), // error: argument_type_not_assignable
 ];
 
 // a typed link to a route of another navigator
-void wrongLink(FdrRouter<ShopRoute> router) {
-  router.delegate.navigate(const Profile()); // error: argument_type_not_assignable
+void wrongOpen(FdrRouter<ShopRoute> router) {
+  router.open(const Profile()); // error: argument_type_not_assignable
 }
 
-// a pending route of the wrong type handed to a child
-DeclarativeNavigatable<OrdersRoute> wrongInitialRoute(Order order) =>
-    OrderNavigator(api: ShopApi(), order: order, reload: () async {}).mount(
-      embed: (child) => OrderAt(order.id, child),
-      unwrap: (route) => null,
-      initialRoute: const ItemReviews(), // error: argument_type_not_assignable
-    );
+// opening a route of another navigator from a navigator's state
+void wrongStateOpen(StatefulNavigatorState<OrdersNavigator, OrdersRoute> state) {
+  state.open(const Profile()); // error: argument_type_not_assignable
+}
+
+// a link to something that is not a route
+Widget wrongLink() => RouteLink(
+  route: const Order(1), // error: argument_type_not_assignable
+  builder: (context, open) => const Text('x'),
+);
+
+// a child navigator that does not fit the parent's route
+NavEntry<ShopRoute> wrongNesting() => NestedNavigator( // error: could_not_infer
+  at: OrdersTab.new, // error: argument_type_not_assignable
+  child: const SettingsNavigator(),
+);
+
+// a child route of the wrong type handed to a nested navigator
+NavEntry<OrdersRoute> wrongChildRoute(Order order) => NestedNavigator( // error: could_not_infer
+  at: (OrderRoute route) => OrderAt(order.id, route), // error: argument_type_not_assignable
+  route: const ItemReviews(),
+  child: OrderNavigator(api: ShopApi(), order: order, reload: () async {}),
+);
 
 // a loaded value handed to a navigator of another route type
-final wrongChild = AsyncNavigator<Order, OrderRoute>(
+final wrongChild = FutureNavigator<Order, OrderRoute>(
   key: const ValueKey(1),
   load: () async => const Order(1),
   loading: const SizedBox(),
-  failed: (error, retry) => const SizedBox(),
+  error: (error, retry) => const SizedBox(),
   builder: (order, reload) => const SettingsNavigator(), // error: return_of_invalid_type_from_closure
 );

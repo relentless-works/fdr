@@ -15,15 +15,15 @@ class _TabShellNavigatorState
   int tab = 0;
 
   @override
-  List<DeclarativeNavigatable<Never>> build() {
+  List<NavEntry<Never>> build() {
     return [
-      shell(
-        active: tab,
-        branches: [ListDetailNavigator(), DynamicPopNavigator()],
-        builder: (context, branches, active) => Scaffold(
-          body: IndexedStack(index: active, children: branches),
+      TabsPage(
+        index: tab,
+        tabs: [ListDetailNavigator(), DynamicPopNavigator()],
+        builder: (context, tabs) => Scaffold(
+          body: IndexedStack(index: tab, children: tabs),
           bottomNavigationBar: NavigationBar(
-            selectedIndex: active,
+            selectedIndex: tab,
             onDestinationSelected: (i) => setState(() => tab = i),
             destinations: const [
               NavigationDestination(

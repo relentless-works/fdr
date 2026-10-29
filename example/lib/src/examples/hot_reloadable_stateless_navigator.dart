@@ -3,32 +3,26 @@ import 'package:flutter/material.dart';
 
 class HotReloadableStatelessNavigator extends StatelessNavigator<Never> {
   @override
-  List<DeclarativeNavigatable<Never>> build() {
-    return [
-      StatelessNavigatorDemo(greeting: 'hello, world!'),
-    ];
+  List<NavEntry<Never>> build() {
+    return [StatelessNavigatorDemo(greeting: 'hello, world!')];
   }
 }
 
 class StatelessNavigatorDemo extends StatelessNavigator<Never> {
   @visibleForTesting
-  StatelessNavigatorDemo({
-    required this.greeting,
-  });
+  StatelessNavigatorDemo({required this.greeting});
 
   final String greeting;
 
   @override
-  List<DeclarativeNavigatable<Never>> build() {
+  List<NavEntry<Never>> build() {
     return [
-      Scaffold(
-        appBar: AppBar(
-          title: const Text('Stateless Navigator'),
+      NavPage(
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Stateless Navigator')),
+          body: Center(child: Text(greeting)),
         ),
-        body: Center(
-          child: Text(greeting),
-        ),
-      ).page(onPop: null),
+      ),
     ];
   }
 }

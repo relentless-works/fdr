@@ -6,18 +6,14 @@ import 'package:flutter/material.dart';
 
 class HotReloadableStatefulNavigator extends StatelessNavigator<Never> {
   @override
-  List<DeclarativeNavigatable<Never>> build() {
-    return [
-      StatefulNavigatorDemo(initialCount: 100),
-    ];
+  List<NavEntry<Never>> build() {
+    return [StatefulNavigatorDemo(initialCount: 100)];
   }
 }
 
 class StatefulNavigatorDemo extends StatefulNavigator<Never> {
   @visibleForTesting
-  StatefulNavigatorDemo({
-    required this.initialCount,
-  });
+  StatefulNavigatorDemo({required this.initialCount});
 
   final int initialCount;
 
@@ -56,26 +52,28 @@ class _StatefulNavigatorDemoState
   }
 
   @override
-  List<DeclarativeNavigatable<Never>> build() {
+  List<NavEntry<Never>> build() {
     return [
-      CupertinoPageScaffold(
-        navigationBar: const CupertinoNavigationBar(
-          middle: Text('Ticks'), // TODO(tp): Check hot reload on change
-        ),
-        child: SafeArea(
-          child: Scaffold(
-            body: Center(
-              child: Text(
-                '$ticks',
-                style: const TextStyle(
-                  fontSize: 90,
-                  fontFeatures: [FontFeature.tabularFigures()],
+      NavPage(
+        child: CupertinoPageScaffold(
+          navigationBar: const CupertinoNavigationBar(
+            middle: Text('Ticks'), // TODO(tp): Check hot reload on change
+          ),
+          child: SafeArea(
+            child: Scaffold(
+              body: Center(
+                child: Text(
+                  '$ticks',
+                  style: const TextStyle(
+                    fontSize: 90,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ).page(onPop: null),
+      ),
     ];
   }
 

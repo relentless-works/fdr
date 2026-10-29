@@ -124,17 +124,22 @@ class _NavigatorState extends StatefulNavigatorState<_Navigator, Never> {
   bool canPop = false;
 
   @override
-  List<DeclarativeNavigatable<Never>> build() {
+  List<NavEntry<Never>> build() {
     return [
-      const _PlatformScaffold(
-        title: Text('Home'),
-        child: ColoredBox(color: Colors.blue),
-      ).page(onPop: null),
+      const NavPage(
+        child: _PlatformScaffold(
+          title: Text('Home'),
+          child: ColoredBox(color: Colors.blue),
+        ),
+      ),
       if (showChild)
-        _SwitchPage(
-          canPop: canPop,
-          onCanPopChanged: (v) => setState(() => canPop = v),
-        ).page(onPop: canPop ? () => setState(() => showChild = false) : null),
+        NavPage(
+          onPop: canPop ? () => setState(() => showChild = false) : null,
+          child: _SwitchPage(
+            canPop: canPop,
+            onCanPopChanged: (v) => setState(() => canPop = v),
+          ),
+        ),
     ];
   }
 }

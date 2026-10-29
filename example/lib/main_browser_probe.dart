@@ -34,7 +34,7 @@ Future<void> _step(
 }) async {
   await action();
   await _settle();
-  final app = _router.delegate.currentUrl;
+  final app = _router.currentUrl;
   final bar = web.window.location.hash;
   final base = int.parse(_storage.getItem('probe.base')!);
   final count = web.window.history.length - base;
@@ -66,35 +66,34 @@ Future<void> _run() async {
 }
 
 Future<void> _beforeReload() async {
-  final nav = _router.delegate;
   await _step('start', () {}, url: '/orders', entries: 1);
   await _step(
     'open order 42 (loads)',
-    () => nav.navigate(const OrdersTab(OrderAt(42))),
+    () => _router.open(const OrdersTab(OrderAt(42))),
     url: '/orders/42',
     entries: 2,
   );
   await _step(
     'open item 3 (loads)',
-    () => nav.navigate(const OrdersTab(OrderAt(42, ItemAt(3)))),
+    () => _router.open(const OrdersTab(OrderAt(42, ItemAt(3)))),
     url: '/orders/42/items/3',
     entries: 3,
   );
   await _step(
     'open reviews',
-    () => nav.navigate(const OrdersTab(OrderAt(42, ItemAt(3, ItemReviews())))),
+    () => _router.open(const OrdersTab(OrderAt(42, ItemAt(3, ItemReviews())))),
     url: '/orders/42/items/3/reviews',
     entries: 4,
   );
   await _step(
     'state-driven pop is a browser back',
-    () => nav.navigate(const OrdersTab(OrderAt(42, ItemAt(3)))),
+    () => _router.open(const OrdersTab(OrderAt(42, ItemAt(3)))),
     url: '/orders/42/items/3',
     entries: 4,
   );
   await _step(
     'system back inside the tab',
-    nav.popRoute,
+    _router.delegate.popRoute,
     url: '/orders/42',
     entries: 4,
   );
@@ -112,13 +111,13 @@ Future<void> _beforeReload() async {
   );
   await _step(
     'open reviews in one go',
-    () => nav.navigate(const OrdersTab(OrderAt(42, ItemAt(3, ItemReviews())))),
+    () => _router.open(const OrdersTab(OrderAt(42, ItemAt(3, ItemReviews())))),
     url: '/orders/42/items/3/reviews',
     entries: 3,
   );
   await _step(
     'close all levels at once',
-    () => nav.navigate(const OrdersTab()),
+    () => _router.open(const OrdersTab()),
     url: '/orders',
     entries: 3,
   );
@@ -131,11 +130,10 @@ Future<void> _beforeReload() async {
 }
 
 Future<void> _afterReload() async {
-  final nav = _router.delegate;
   await _step('after reload', () {}, url: '/orders/42', entries: 3);
   await _step(
     'back after reload is a browser back',
-    () => nav.navigate(const OrdersTab()),
+    () => _router.open(const OrdersTab()),
     url: '/orders',
     entries: 3,
   );
@@ -147,7 +145,7 @@ Future<void> _afterReload() async {
   );
   await _step(
     'switch tab',
-    () => nav.navigate(const SettingsTab(Profile())),
+    () => _router.open(const SettingsTab(Profile())),
     url: '/settings/profile',
     entries: 3,
   );
@@ -169,4 +167,21 @@ Future<void> _afterReload() async {
     url: '/orders/42',
     entries: 3,
   );
+  await _step(
+    'back to the order list',
+    () => _router.open(const OrdersTab()),
+    url: '/orders',
+    entries: 3,
+  );
+  // the list's RouteLinks are anchors the browser can open in a new tab;
+  // the URL strategy adds the page's base
+  final href = web.document
+      .querySelector(r'a[href$="#/orders/1"]')
+      ?.getAttribute('href');
+  _check('order 1 is a real link', href != null, 'href=$href');
+}
+
+void _check(String name, bool ok, String detail) {
+  if (!ok) _failures++;
+  print('PROBE ${ok ? 'ok  ' : 'FAIL'} ${name.padRight(34)} $detail');
 }

@@ -1,13 +1,13 @@
 part of 'core.dart';
 
-typedef KeyedPage = (LocalKey key, DeclarativeNavigatablePage<Object?> page);
+typedef KeyedPage = (LocalKey key, FlatPage page);
 
 /// Keys a flattened page list so the Navigator pairs old and new pages by
 /// identity instead of position: explicit keys win; a routed page is keyed by
 /// [routeKey] of its route (`#n` for repeats); a page without a route by the
 /// key of the routed page below it plus its offset.
 List<KeyedPage> keyPages(
-  List<DeclarativeNavigatablePage<Object?>> pages,
+  List<FlatPage> pages,
   String? Function(Object route) routeKey,
 ) {
   final seen = <String, int>{};
@@ -16,7 +16,7 @@ List<KeyedPage> keyPages(
   var offset = 0;
   for (final page in pages) {
     final route = page.route;
-    final base = route == null ? null : routeKey(route);
+    final base = page.keyBase ?? (route == null ? null : routeKey(route));
     final explicit = page.key;
     final String derived;
     if (explicit != null) {
@@ -61,12 +61,16 @@ void applyPopContract(
     return;
   }
   onPop();
-  if (current().any((e) => e.$1 == removed.key)) {
-    _reportPopMisuse(
-      'onPop of page ${removed.key} ran but the state still builds the page; '
-      'onPop must change the state so the page disappears.',
-    );
-  }
+  // checked after the microtasks, so a store whose stream delivers its new
+  // state asynchronously (a bloc) has rebuilt the navigator by then
+  Timer.run(() {
+    if (current().any((e) => e.$1 == removed.key)) {
+      _reportPopMisuse(
+        'onPop of page ${removed.key} ran but the state still builds the '
+        'page; onPop must change the state so the page disappears.',
+      );
+    }
+  });
 }
 
 // reported, not thrown: this runs inside the Navigator's locked history

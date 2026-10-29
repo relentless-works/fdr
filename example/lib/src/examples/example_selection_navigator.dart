@@ -15,28 +15,32 @@ class ExampleSelectionNavigator extends StatefulNavigator<Never> {
 
 class _ExampleSelectionNavigatorState
     extends StatefulNavigatorState<ExampleSelectionNavigator, Never> {
-  DeclarativeNavigatable<Never>? child;
+  StatefulNavigator<Never>? child;
 
   @override
-  List<DeclarativeNavigatable<Never>> build() {
+  List<NavEntry<Never>> build() {
     final child = this.child;
 
     return [
-      ExampleSelectionPage(
-        examples: {
-          'List Detail': () => ListDetailNavigator(),
-          'Dynamic back behavior': () => DynamicPopNavigator(),
-          'Stateful Navigator': () => HotReloadableStatefulNavigator(),
-          'Stateless Navigator': () => HotReloadableStatelessNavigator(),
-          'Overlay Portal': () => OverlayPortalNavigator(),
-          'Tab shell': () => TabShellNavigator(),
-        },
-        onExampleSelect: (exampleFactory) => setState(
-          () => this.child = exampleFactory(),
+      NavPage(
+        child: ExampleSelectionPage(
+          examples: {
+            'List Detail': () => ListDetailNavigator(),
+            'Dynamic back behavior': () => DynamicPopNavigator(),
+            'Stateful Navigator': () => HotReloadableStatefulNavigator(),
+            'Stateless Navigator': () => HotReloadableStatelessNavigator(),
+            'Overlay Portal': () => OverlayPortalNavigator(),
+            'Tab shell': () => TabShellNavigator(),
+          },
+          onExampleSelect: (exampleFactory) =>
+              setState(() => this.child = exampleFactory()),
         ),
-      ).page(onPop: null),
+      ),
       if (child != null)
-        child.poppable(onPop: () => setState(() => this.child = null)),
+        NestedNavigator(
+          onPop: () => setState(() => this.child = null),
+          child: child,
+        ),
     ];
   }
 }
@@ -49,9 +53,9 @@ class ExampleSelectionPage extends StatelessWidget {
     required this.onExampleSelect,
   });
 
-  final Map<String, ValueGetter<DeclarativeNavigatable<Never>>> examples;
+  final Map<String, ValueGetter<StatefulNavigator<Never>>> examples;
 
-  final ValueSetter<ValueGetter<DeclarativeNavigatable<Never>>> onExampleSelect;
+  final ValueSetter<ValueGetter<StatefulNavigator<Never>>> onExampleSelect;
 
   @override
   Widget build(BuildContext context) {

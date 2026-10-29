@@ -1,72 +1,154 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../core/core.dart';
 import 'browser_history.dart';
-import 'url_codec.dart';
+import 'url.dart';
 
-/// The Router configuration: the root route plus the non-URL state tree.
-final class RouteSnapshot<R extends Object> {
-  const RouteSnapshot(this.route, {this.historyState});
+/// The Router configuration: the root route, or the URL that did not parse,
+/// plus the non-URL state tree.
+final class RouteSnapshot<R extends NavRoute> {
+  const RouteSnapshot(this.route, {this.missing, this.historyState});
 
-  final R route;
+  /// The route to apply; for a URL that did not parse completely, the
+  /// longest prefix that did. `null` if not even `/` parses.
+  final R? route;
+
+  /// The URL as typed, if it did not parse completely: shown with the
+  /// not-found page on top of [route].
+  final Url? missing;
+
   final Object? historyState;
+
+  Url get url => missing ?? route!.toUrl();
 }
 
-class FdrRouterDelegate<R extends Object>
+class FdrRouterDelegate<R extends NavRoute>
     extends RouterDelegate<RouteSnapshot<R>>
     with ChangeNotifier {
-  FdrRouterDelegate({required this.root, required this.codec, this.pageKey}) {
-    scope.stackChange = _stackChange;
-    _mapper = NavigatableToPageMapper(scope, _routeKey)
+  FdrRouterDelegate({
+    required this.root,
+    required this.fromUrl,
+    required this.notFound,
+  }) {
+    scope
+      ..stackChange = _stackChange
+      ..openRoot = ((route, history) => _open(route as R, history))
+      ..hrefOf = ((route) => (route as R).toUrl().toString());
+    _host = NavHost<R>(scope, description: 'the router ($R)')
       ..pages.addListener(_onPagesChanged)
-      ..updatePages([_rootMount(root)]);
+      ..update(_entries());
     _reportedStack = _routedStack();
   }
 
   final StatefulNavigator<R> root;
-  final UrlCodec<R> codec;
+  final R Function(Url url) fromUrl;
+  final Widget Function(Url url) notFound;
   final RoutingScope scope = RoutingScope();
-
-  /// Identity of a routed page for the Navigator's diffing. Defaults to the
-  /// printed path without the query: `/orders?page=2` -> `?page=3` updates
-  /// the list page in place, `/orders/42` -> `/orders/43` is a new page.
-  final String Function(R route)? pageKey;
 
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  late final NavigatableToPageMapper _mapper;
+  late final NavHost<R> _host;
+  Url? _missing;
   R? _lastRoute;
-  bool _applying = false;
+  int _applying = 0;
+  bool _started = false;
+  bool _openedBeforeStart = false;
   List<LocalKey> _reportedStack = const [];
 
-  // the root is mounted with the identity embedding
-  static MountedNavigatable<R, R> _rootMount<R>(StatefulNavigator<R> root) {
-    return MountedNavigatable<R, R>(root, embed: (r) => r, unwrap: (r) => r);
+  List<NavEntry<Object?>> _entries() => [
+    root,
+    if (_missing case final url?)
+      NavPage<Object?>(route: url, onPop: _closeNotFound, child: notFound(url)),
+  ];
+
+  void _closeNotFound() {
+    _missing = null;
+    _host.update(_entries());
   }
 
   void _onPagesChanged() {
-    if (!_applying) notifyListeners();
+    if (_applying == 0) notifyListeners();
   }
+
+  static String _print(Object route) => switch (route) {
+    Url() => route.toString(),
+    _ => (route as NavRoute).toUrl().toString(),
+  };
 
   /// Printed URL of the current state (null while no page has a route).
   String? get currentUrl {
-    final r = _mapper.route as R?;
-    return r == null ? null : codec.encode(r).toString();
+    final top = _host.route;
+    return top == null ? null : _print(top);
   }
 
   @override
   RouteSnapshot<R>? get currentConfiguration {
-    final derived = _mapper.route as R?;
-    if (derived != null) _lastRoute = derived;
+    final top = _host.route;
+    if (top is Url) {
+      return RouteSnapshot(
+        null,
+        missing: top,
+        historyState: _host.historyState,
+      );
+    }
+    final derived = top as R?;
+    if (derived != null) {
+      _lastRoute = derived;
+      assert(_debugCheckRoundTrip(derived));
+    }
     final route = derived ?? _lastRoute;
     if (route == null) return null;
-    return RouteSnapshot(route, historyState: _mapper.historyState);
+    return RouteSnapshot(route, historyState: _host.historyState);
+  }
+
+  String? _checked;
+
+  // a URL the app prints has to lead back to the same URL, or links,
+  // reloads and shared URLs end up elsewhere
+  bool _debugCheckRoundTrip(R route) {
+    final printed = route.toUrl().toString();
+    if (printed == _checked) return true;
+    _checked = printed;
+    String outcome;
+    try {
+      final again = fromUrl(Url.parse(Uri.parse(printed))).toUrl().toString();
+      if (again == printed) return true;
+      outcome = 'parses to a route that prints $again';
+    } on Object catch (error) {
+      outcome = 'does not parse ($error)';
+    }
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: FlutterError.fromParts([
+          ErrorSummary('${route.runtimeType} prints $printed, which $outcome.'),
+          ErrorHint(
+            'toUrl and fromUrl have to agree: links, reloads and shared URLs '
+            'use what toUrl prints.',
+          ),
+        ]),
+        library: 'fdr',
+      ),
+    );
+    return true;
   }
 
   @override
   Future<void> setNewRoutePath(RouteSnapshot<R> configuration) {
+    _started = true;
     _apply(configuration);
+    return SynchronousFuture(null);
+  }
+
+  /// The platform's initial route, unless the app opened a route before it
+  /// arrived (e.g. from the notification that launched it): that one wins,
+  /// and its URL replaces the initial one.
+  @override
+  Future<void> setInitialRoutePath(RouteSnapshot<R> configuration) {
+    if (!_openedBeforeStart) return setNewRoutePath(configuration);
+    _started = true;
+    scope.requestHistory(HistoryAction.replace);
+    notifyListeners();
     return SynchronousFuture(null);
   }
 
@@ -76,23 +158,23 @@ class FdrRouterDelegate<R extends Object>
   }
 
   /// URL -> state, top-down. Idempotent: an incoming route whose URL equals
-  /// the derived one touches no navigator state (only the history state is
+  /// the current one touches no navigator state (only the history state is
   /// restored, for browser back/forward).
   void _apply(RouteSnapshot<R> snapshot) {
-    final incomingUrl = codec.encode(snapshot.route).toString();
-    _applying = true;
+    _applying++;
     try {
-      if (incomingUrl != currentUrl) {
-        _mapper.updatePages([_rootMount(root)], incomingRoute: snapshot.route);
+      if (snapshot.url.toString() != currentUrl) {
+        _missing = snapshot.missing;
+        _host.update(_entries(), incomingRoute: snapshot.route);
       }
       if (snapshot.historyState != null) {
-        _mapper
+        _host
           ..restoreHistoryState(snapshot.historyState)
           // rebuild so pages pick up the restored non-URL state
-          ..updatePages([_rootMount(root)]);
+          ..update(_entries());
       }
     } finally {
-      _applying = false;
+      _applying--;
     }
     // the platform delivered this route, so it already is the browser's
     // current entry: the next report corrects it in place (canonical form,
@@ -101,32 +183,29 @@ class FdrRouterDelegate<R extends Object>
     notifyListeners();
   }
 
-  /// Applies [route] like a link, from outside the navigator tree: a push
-  /// notification handler, a button in a dialog, a test. Unlike an incoming
-  /// URL, it is a navigation of its own: by default the history action is
-  /// derived from how the page stack changes (push, or a back for pops).
-  void navigate(R route, {HistoryAction history = HistoryAction.auto}) {
-    _applying = true;
+  /// Navigates to [route] like a link: from a push notification handler, a
+  /// widget outside the pages, a test. By default, the history action
+  /// follows from how the page stack changes (push, or a back for pops).
+  void open(R route, {HistoryAction history = HistoryAction.auto}) {
+    scope.open(route, history);
+  }
+
+  void _open(R route, HistoryAction history) {
+    if (!_started) _openedBeforeStart = true;
+    _applying++;
     try {
-      _mapper.updatePages([_rootMount(root)], incomingRoute: route);
+      _missing = null;
+      _host.update(_entries(), incomingRoute: route);
     } finally {
-      _applying = false;
+      _applying--;
     }
     scope.requestHistory(history);
     notifyListeners();
   }
 
-  String? _routeKey(Object route) {
-    final custom = pageKey;
-    if (custom != null) return custom(route as R);
-    return codec.encode(route as R).path;
-  }
+  List<LocalKey> _routedStack() => _routedKeys(_host.keyed());
 
-  List<KeyedPage> _keyed() => keyPages(_mapper.pages.value, _routeKey);
-
-  List<LocalKey> _routedStack() => _routedKeys(_keyed());
-
-  // routed page keys, looking into the active branch of shell pages
+  // routed page keys, looking into the active tab of tabs pages
   static List<LocalKey> _routedKeys(List<KeyedPage> pages) => [
     for (final (key, page) in pages)
       if (page.nestedPages case final nested?)
@@ -154,21 +233,7 @@ class FdrRouterDelegate<R extends Object>
 
   @override
   Widget build(BuildContext context) {
-    return _ReassembleHook(
-      child: ValueListenableBuilder(
-        valueListenable: _mapper.pages,
-        builder: (context, pages, _) {
-          return Navigator(
-            key: navigatorKey,
-            pages: [
-              for (final (i, (key, page)) in keyPages(pages, _routeKey).indexed)
-                page.buildPage(defaultKey: key, forceCanPop: i == 0),
-            ],
-            onDidRemovePage: (page) => applyPopContract(page, _keyed),
-          );
-        },
-      ),
-    );
+    return _ReassembleHook(child: _host.navigator(key: navigatorKey));
   }
 
   /// Android back: `maybePop` honours `Page.canPop` and any `PopScope`; on
@@ -180,7 +245,7 @@ class FdrRouterDelegate<R extends Object>
 
   @override
   void dispose() {
-    _mapper
+    _host
       ..pages.removeListener(_onPagesChanged)
       ..dispose();
     super.dispose();
@@ -207,18 +272,11 @@ class _ReassembleHookState extends State<_ReassembleHook> {
   Widget build(BuildContext context) => widget.child;
 }
 
-class FdrRouteInformationParser<R extends Object>
+class FdrRouteInformationParser<R extends NavRoute>
     extends RouteInformationParser<RouteSnapshot<R>> {
-  FdrRouteInformationParser({
-    required this.codec,
-    required this.notFound,
-    this.normalize = appPath,
-  });
+  FdrRouteInformationParser({required this.fromUrl, this.normalize = appPath});
 
-  final UrlCodec<R> codec;
-
-  /// Typed fallback for URLs the codec rejects (no match or invalid value).
-  final R Function(Uri uri) notFound;
+  final R Function(Url url) fromUrl;
 
   /// Maps an incoming URI (web path, OS deep link) to the routed path+query.
   final Uri Function(Uri uri) normalize;
@@ -237,21 +295,58 @@ class FdrRouteInformationParser<R extends Object>
     );
   }
 
+  /// The route for [url], or, if a level throws [NotFound], for the longest
+  /// prefix of [url] that parses: the same path without the query first,
+  /// then one segment less at a time. [url] is then returned as missing too.
+  /// Any other error is a bug in a `fromUrl`; it is reported and handled
+  /// like a URL that does not parse at all.
+  (R?, Url?) resolve(Url url) {
+    var attempt = url;
+    while (true) {
+      try {
+        return (fromUrl(attempt), identical(attempt, url) ? null : url);
+      } on NotFound {
+        final segments = attempt.segments;
+        if (attempt.query.isNotEmpty) {
+          attempt = Url(segments);
+        } else if (segments.isEmpty) {
+          return (null, url);
+        } else {
+          attempt = Url(segments.sublist(0, segments.length - 1));
+        }
+      } on Object catch (error, stack) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'fdr',
+            context: ErrorDescription('while parsing $attempt'),
+          ),
+        );
+        return (null, url);
+      }
+    }
+  }
+
   @override
   Future<RouteSnapshot<R>> parseRouteInformation(
     RouteInformation routeInformation,
   ) {
-    final uri = normalize(routeInformation.uri);
-    final route = codec.decode(uri) ?? notFound(uri);
+    final url = Url.parse(normalize(routeInformation.uri));
+    final (route, missing) = resolve(url);
     return SynchronousFuture(
-      RouteSnapshot(route, historyState: routeInformation.state),
+      RouteSnapshot(
+        route,
+        missing: missing,
+        historyState: routeInformation.state,
+      ),
     );
   }
 
   @override
   RouteInformation? restoreRouteInformation(RouteSnapshot<R> configuration) {
     return RouteInformation(
-      uri: codec.encode(configuration.route),
+      uri: configuration.url.toUri(),
       state: configuration.historyState,
     );
   }
@@ -548,17 +643,36 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
 }
 
 /// Bundles delegate, parser and provider for `MaterialApp.router`.
-class FdrRouter<R extends Object> {
+///
+/// ```dart
+/// final router = FdrRouter(root: ShopNavigator(), fromUrl: ShopRoute.fromUrl);
+/// void main() => runApp(MaterialApp.router(routerConfig: router.config));
+/// ```
+///
+/// [notFound] builds the page shown on top of the nearest existing page when
+/// a URL does not parse completely (see [NotFound]).
+class FdrRouter<R extends NavRoute> {
   FdrRouter({
     required StatefulNavigator<R> root,
-    required UrlCodec<R> codec,
-    required R Function(Uri uri) notFound,
+    required R Function(Url url) fromUrl,
+    Widget Function(Url url) notFound = _defaultNotFound,
     BrowserHistory? browserHistory,
     HistoryAction popFallback = HistoryAction.push,
     RouteInformation? initialRouteInformation,
-    int? sessionId,
-  }) : delegate = FdrRouterDelegate(root: root, codec: codec),
-       parser = FdrRouteInformationParser(codec: codec, notFound: notFound) {
+    @visibleForTesting int? sessionId,
+  }) : assert(
+         // Dart infers R as a common supertype when root and fromUrl
+         // disagree; routes of the other type would reach the root
+         debugNavigatorTakes<R>(root),
+         'The root ${root.runtimeType} does not take every $R that fromUrl '
+         'returns: fromUrl has to return the root\'s route type.',
+       ),
+       delegate = FdrRouterDelegate(
+         root: root,
+         fromUrl: fromUrl,
+         notFound: notFound,
+       ),
+       parser = FdrRouteInformationParser(fromUrl: fromUrl) {
     provider = FdrRouteInformationProvider(
       initialRouteInformation:
           initialRouteInformation ??
@@ -586,5 +700,33 @@ class FdrRouter<R extends Object> {
     routeInformationParser: parser,
     routerDelegate: delegate,
     backButtonDispatcher: RootBackButtonDispatcher(),
+  );
+
+  /// Navigates to [route] like a link, e.g. from a push notification.
+  void open(R route, {HistoryAction history = HistoryAction.auto}) {
+    delegate.open(route, history: history);
+  }
+
+  /// The URL of the current state.
+  String? get currentUrl => delegate.currentUrl;
+
+  /// Disposes the navigator states (and with them their subscriptions);
+  /// for a router that is not created once for the app's lifetime.
+  void dispose() {
+    delegate.dispose();
+    provider.dispose();
+  }
+
+  static Widget _defaultNotFound(Url url) => _NotFoundPage(url: url);
+}
+
+class _NotFoundPage extends StatelessWidget {
+  const _NotFoundPage({required this.url});
+
+  final Url url;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    child: SafeArea(child: Center(child: Text('No page at $url'))),
   );
 }

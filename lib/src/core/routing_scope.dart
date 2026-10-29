@@ -19,9 +19,37 @@ enum HistoryAction {
 }
 
 /// Shared by all navigator states of one root; carries the history action
-/// requested by state changes to the router layer.
+/// requested by state changes to the router layer, and links to the root.
 final class RoutingScope {
   HistoryAction _requested = HistoryAction.auto;
+
+  /// Set by the host: applies a route of the root's type from the root down.
+  void Function(Object? route, HistoryAction history)? openRoot;
+
+  /// Set by the router: the URL of a route of the root's type, for links.
+  String? Function(Object? route)? hrefOf;
+
+  // navigator passes in progress; an open() during one (a redirect in
+  // applyRoute, an open() in initState) runs once the outermost one is done
+  int _passes = 0;
+  (Object?, HistoryAction)? _queuedOpen;
+
+  /// Opens [route] (of the root's type) through [openRoot], after the
+  /// navigator updates in progress, if any.
+  void open(Object? route, HistoryAction history) {
+    if (_passes > 0) {
+      _queuedOpen = (route, history);
+      return;
+    }
+    openRoot?.call(route, history);
+  }
+
+  void _openQueued() {
+    final queued = _queuedOpen;
+    if (queued == null) return;
+    _queuedOpen = null;
+    openRoot?.call(queued.$1, queued.$2);
+  }
 
   /// Set by the router delegate: the action implied by how the routed page
   /// stack changed since the previous report. Called once per report, so it

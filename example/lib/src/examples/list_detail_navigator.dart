@@ -15,42 +15,43 @@ class _ListDetailNavigatorState
   int? selectedNumber;
 
   @override
-  List<DeclarativeNavigatable<Never>> build() {
+  List<NavEntry<Never>> build() {
     final selectedNumber = this.selectedNumber;
 
     clear() => setState(() => this.selectedNumber = null);
 
     return [
-      NumberSelectionPage(
-        onNumberSelect: (number) =>
-            setState(() => this.selectedNumber = number),
-      ).page(onPop: null),
+      NavPage(
+        child: NumberSelectionPage(
+          onNumberSelect: (number) =>
+              setState(() => this.selectedNumber = number),
+        ),
+      ),
       if (selectedNumber != null)
         if (selectedNumber == 7)
-          LuckyNumberSevenPage(
-            onTap: clear,
-          ).popup(onPop: clear)
+          DialogPage(
+            onPop: clear,
+            child: LuckyNumberSevenPage(onTap: clear),
+          )
         else
-          NumberDetailPage(number: selectedNumber).page(onPop: clear),
+          NavPage(
+            onPop: clear,
+            child: NumberDetailPage(number: selectedNumber),
+          ),
     ];
   }
 }
 
 class NumberSelectionPage extends StatelessWidget {
   @visibleForTesting
-  const NumberSelectionPage({
-    super.key,
-    required this.onNumberSelect,
-  });
+  const NumberSelectionPage({super.key, required this.onNumberSelect});
 
   final ValueSetter<int> onNumberSelect;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pick a number'),
-      ),
+      appBar: AppBar(title: const Text('Pick a number')),
       body: ListView.builder(
         itemCount: 1000,
         itemBuilder: (context, index) {
@@ -69,24 +70,16 @@ class NumberSelectionPage extends StatelessWidget {
 
 class NumberDetailPage extends StatelessWidget {
   @visibleForTesting
-  const NumberDetailPage({
-    super.key,
-    required this.number,
-  });
+  const NumberDetailPage({super.key, required this.number});
 
   final int number;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Your choice'),
-      ),
+      appBar: AppBar(title: const Text('Your choice')),
       body: Center(
-        child: Text(
-          '$number',
-          style: const TextStyle(fontSize: 90),
-        ),
+        child: Text('$number', style: const TextStyle(fontSize: 90)),
       ),
     );
   }
@@ -94,32 +87,18 @@ class NumberDetailPage extends StatelessWidget {
 
 class LuckyNumberSevenPage extends StatelessWidget {
   @visibleForTesting
-  const LuckyNumberSevenPage({
-    super.key,
-    required this.onTap,
-  });
+  const LuckyNumberSevenPage({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Lucky you!'),
-        automaticallyImplyLeading: false,
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          width: 300,
-          child: GestureDetector(
-            onTap: onTap,
-            child: const Text(
-              '🥳',
-              style: TextStyle(fontSize: 90),
-            ),
-          ),
-        ),
-      ),
+    return CupertinoAlertDialog(
+      title: const Text('Lucky you!'),
+      content: const Text('🥳', style: TextStyle(fontSize: 90)),
+      actions: [
+        CupertinoDialogAction(onPressed: onTap, child: const Text('Thanks')),
+      ],
     );
   }
 }

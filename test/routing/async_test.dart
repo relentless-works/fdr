@@ -18,14 +18,13 @@ List<({String uri, bool replace})> get _reports => [
 
 late FdrRouter<ShopRoute> _router;
 
-String get _url => _router.delegate.currentUrl!;
+String get _url => _router.currentUrl!;
 
 Future<void> _pumpShop(WidgetTester tester, String initialUrl) async {
   tester.binding.platformDispatcher.defaultRouteNameTestValue = initialUrl;
   _router = FdrRouter<ShopRoute>(
     root: const ShopNavigator(),
-    codec: shopCodec,
-    notFound: (_) => const OrderListRoute(),
+    fromUrl: ShopRoute.fromUrl,
     sessionId: 1,
   );
   await tester.pumpWidget(MaterialApp.router(routerConfig: _router.config));
