@@ -2,12 +2,10 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class OverlayPortalNavigator extends StatelessNavigator {
+class OverlayPortalNavigator extends StatelessNavigator<Never> {
   @override
-  List<DeclarativeNavigatable> build() {
-    return [
-      const OverlayTogglePage().page(onPop: null),
-    ];
+  List<NavEntry<Never>> build() {
+    return [const NavPage(child: OverlayTogglePage())];
   }
 }
 
@@ -37,7 +35,7 @@ class _OverlayTogglePageState extends State<OverlayTogglePage> {
               child: Container(
                 width: 300,
                 height: 300,
-                color: Colors.red.withOpacity(0.8),
+                color: Colors.red.withValues(alpha: 0.8),
               ),
             ),
           ),

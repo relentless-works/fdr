@@ -1,0 +1,81 @@
+// Mistakes that must not compile. Every line marked `// error: <code>` has to
+// fail with that diagnostic, and no other line may fail;
+// tool/check_typing.dart copies this file into the example package to check.
+import 'package:fdr/fdr.dart';
+import 'package:fdr_example/url_routing/shop.dart';
+import 'package:flutter/widgets.dart';
+
+sealed class R extends NavRoute {
+  const R();
+
+  static R fromUrl(Url url) => switch (url.segments) {
+    [final int id] => A(id),
+    // a field retyped from int to String without updating fromUrl
+    ['sku', final int sku] => S(sku), // error: argument_type_not_assignable
+    _ => throw NotFound(url),
+  };
+
+  // a new route case nobody prints
+  @override
+  Url toUrl() => switch (this) { // error: non_exhaustive_switch_expression
+    A(:final id) => Url([id]),
+    S(:final sku) => Url(['sku', sku]),
+  };
+}
+
+final class A extends R {
+  const A(this.id);
+  final int id;
+}
+
+final class S extends R {
+  const S(this.sku);
+  final String sku;
+}
+
+final class B extends R {
+  const B();
+}
+
+// a page addressed by another navigator's route type
+List<NavEntry<OrdersRoute>> wrongPage() => [
+  NavPage(route: const Profile(), child: const Text('x')), // error: argument_type_not_assignable
+];
+
+// a typed link to a route of another navigator
+void wrongOpen(FdrRouter<ShopRoute> router) {
+  router.open(const Profile()); // error: argument_type_not_assignable
+}
+
+// opening a route of another navigator from a navigator's state
+void wrongStateOpen(StatefulNavigatorState<OrdersNavigator, OrdersRoute> state) {
+  state.open(const Profile()); // error: argument_type_not_assignable
+}
+
+// a link to something that is not a route
+Widget wrongLink() => RouteLink(
+  route: const Order(1), // error: argument_type_not_assignable
+  builder: (context, open) => const Text('x'),
+);
+
+// a child navigator that does not fit the parent's route
+NavEntry<ShopRoute> wrongNesting() => NestedNavigator( // error: could_not_infer
+  at: OrdersTab.new, // error: argument_type_not_assignable
+  child: const SettingsNavigator(),
+);
+
+// a child route of the wrong type handed to a nested navigator
+NavEntry<OrdersRoute> wrongChildRoute(Order order) => NestedNavigator( // error: could_not_infer
+  at: (OrderRoute route) => OrderAt(order.id, route), // error: argument_type_not_assignable
+  route: const ItemReviews(),
+  child: OrderNavigator(api: ShopApi(), order: order, reload: () async {}),
+);
+
+// a loaded value handed to a navigator of another route type
+final wrongChild = FutureNavigator<Order, OrderRoute>(
+  key: const ValueKey(1),
+  load: () async => const Order(1),
+  loading: const SizedBox(),
+  error: (error, retry) => const SizedBox(),
+  builder: (order, reload) => const SettingsNavigator(), // error: return_of_invalid_type_from_closure
+);

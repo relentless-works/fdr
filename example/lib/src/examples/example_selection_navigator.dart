@@ -4,37 +4,43 @@ import 'package:fdr_example/src/examples/hot_reloadable_stateful_navigator.dart'
 import 'package:fdr_example/src/examples/hot_reloadable_stateless_navigator.dart';
 import 'package:fdr_example/src/examples/list_detail_navigator.dart';
 import 'package:fdr_example/src/examples/overlay_portal_navigator.dart';
+import 'package:fdr_example/src/examples/tab_shell_navigator.dart';
 import 'package:flutter/cupertino.dart';
 
-class ExampleSelectionNavigator extends StatefulNavigator {
+class ExampleSelectionNavigator extends StatefulNavigator<Never> {
   @override
-  StatefulNavigatorState<ExampleSelectionNavigator> createState() =>
+  StatefulNavigatorState<ExampleSelectionNavigator, Never> createState() =>
       _ExampleSelectionNavigatorState();
 }
 
 class _ExampleSelectionNavigatorState
-    extends StatefulNavigatorState<ExampleSelectionNavigator> {
-  DeclarativeNavigatable? child;
+    extends StatefulNavigatorState<ExampleSelectionNavigator, Never> {
+  StatefulNavigator<Never>? child;
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<NavEntry<Never>> build() {
     final child = this.child;
 
     return [
-      ExampleSelectionPage(
-        examples: {
-          'List Detail': () => ListDetailNavigator(),
-          'Dynamic back behavior': () => DynamicPopNavigator(),
-          'Stateful Navigator': () => HotReloadableStatefulNavigator(),
-          'Stateless Navigator': () => HotReloadableStatelessNavigator(),
-          'Overlay Portal': () => OverlayPortalNavigator(),
-        },
-        onExampleSelect: (exampleFactory) => setState(
-          () => this.child = exampleFactory(),
+      NavPage(
+        child: ExampleSelectionPage(
+          examples: {
+            'List Detail': () => ListDetailNavigator(),
+            'Dynamic back behavior': () => DynamicPopNavigator(),
+            'Stateful Navigator': () => HotReloadableStatefulNavigator(),
+            'Stateless Navigator': () => HotReloadableStatelessNavigator(),
+            'Overlay Portal': () => OverlayPortalNavigator(),
+            'Tab shell': () => TabShellNavigator(),
+          },
+          onExampleSelect: (exampleFactory) =>
+              setState(() => this.child = exampleFactory()),
         ),
-      ).page(onPop: null),
+      ),
       if (child != null)
-        child.poppable(onPop: () => setState(() => this.child = null)),
+        NestedNavigator(
+          onPop: () => setState(() => this.child = null),
+          child: child,
+        ),
     ];
   }
 }
@@ -47,9 +53,9 @@ class ExampleSelectionPage extends StatelessWidget {
     required this.onExampleSelect,
   });
 
-  final Map<String, ValueGetter<DeclarativeNavigatable>> examples;
+  final Map<String, ValueGetter<StatefulNavigator<Never>>> examples;
 
-  final ValueSetter<ValueGetter<DeclarativeNavigatable>> onExampleSelect;
+  final ValueSetter<ValueGetter<StatefulNavigator<Never>>> onExampleSelect;
 
   @override
   Widget build(BuildContext context) {

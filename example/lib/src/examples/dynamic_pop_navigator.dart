@@ -2,47 +2,46 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class DynamicPopNavigator extends StatefulNavigator {
+class DynamicPopNavigator extends StatefulNavigator<Never> {
   @override
-  StatefulNavigatorState<DynamicPopNavigator> createState() =>
+  StatefulNavigatorState<DynamicPopNavigator, Never> createState() =>
       _DynamicPopNavigatorState();
 }
 
 class _DynamicPopNavigatorState
-    extends StatefulNavigatorState<DynamicPopNavigator> {
+    extends StatefulNavigatorState<DynamicPopNavigator, Never> {
   bool showChild = true;
   bool canPop = false;
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<NavEntry<Never>> build() {
     return [
-      Scaffold(
-        appBar: AppBar(
-          title: const Text('Dynamic pop parent'),
-        ),
-        body: Center(
-          child: FilledButton(
-            onPressed: () => setState(() => showChild = true),
-            child: const Text('Open child page'),
+      NavPage(
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Dynamic pop parent')),
+          body: Center(
+            child: FilledButton(
+              onPressed: () => setState(() => showChild = true),
+              child: const Text('Open child page'),
+            ),
           ),
         ),
-      ).page(onPop: null),
+      ),
       if (showChild)
-        PopToggle(
-          value: canPop,
-          onChange: (v) => setState(() => canPop = v),
-        ).page(onPop: canPop ? () => setState(() => showChild = false) : null),
+        NavPage(
+          onPop: canPop ? () => setState(() => showChild = false) : null,
+          child: PopToggle(
+            value: canPop,
+            onChange: (v) => setState(() => canPop = v),
+          ),
+        ),
     ];
   }
 }
 
 class PopToggle extends StatelessWidget {
   @visibleForTesting
-  const PopToggle({
-    super.key,
-    required this.value,
-    required this.onChange,
-  });
+  const PopToggle({super.key, required this.value, required this.onChange});
 
   final bool value;
 
@@ -52,20 +51,13 @@ class PopToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     if (Theme.of(context).platform == TargetPlatform.android) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Dynamic pop'),
-        ),
-        body: Switch(
-          value: value,
-          onChanged: onChange,
-        ),
+        appBar: AppBar(title: const Text('Dynamic pop')),
+        body: Switch(value: value, onChanged: onChange),
       );
     }
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Dynamic Pop'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('Dynamic Pop')),
       child: Container(
         color: CupertinoColors.systemGroupedBackground,
         child: SafeArea(
