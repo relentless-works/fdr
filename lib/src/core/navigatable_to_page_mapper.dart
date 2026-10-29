@@ -69,8 +69,10 @@ final class NavigatableToPageMapper {
 
       Object? Function(Object?)? embed;
       Object? childRoute;
+      Object? initialRoute;
       if (item is MountedNavigatable<Object?, Object?>) {
         embed = item.embedUntyped;
+        initialRoute = item.initialRoute;
         final incoming = _incomingRoute;
         if (incoming != null) {
           childRoute = item.unwrapUntyped(incoming);
@@ -114,10 +116,11 @@ final class NavigatableToPageMapper {
                 ? routeKey
                 : (route) => routeKey(lift(route)!);
             state.initState();
-            if (childRoute != null) {
-              state.applyRoute(childRoute);
+            final firstRoute = childRoute ?? initialRoute;
+            if (firstRoute != null) {
+              state.applyRoute(firstRoute);
             }
-            state._updatePages(childRoute);
+            state._updatePages(firstRoute);
             state.pages.addListener(_onChildPagesChanged);
           }
           states[index] = state;

@@ -25,6 +25,11 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
 
   RoutingScope? _scope;
   String? Function(Object route)? _routeKey;
+  bool _mounted = false;
+
+  /// Whether this state is in use: true from [initState] until [dispose].
+  /// Check it before calling [setState] from an async callback.
+  bool get mounted => _mounted;
 
   ValueListenable<List<DeclarativeNavigatablePage<Object?>>> get pages {
     return _pageMapper.pages;
@@ -36,6 +41,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
 
   @mustCallSuper
   void initState() {
+    _mounted = true;
     _pageMapper = NavigatableToPageMapper(
       _scope,
       _routeKey ?? NavigatableToPageMapper._noRouteKey,
@@ -73,6 +79,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
     void Function() fn, {
     HistoryAction history = HistoryAction.auto,
   }) {
+    assert(mounted, 'setState() called on $runtimeType after dispose()');
     fn();
     _scope?.requestHistory(history);
     updatePages();
@@ -96,6 +103,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
 
   @mustCallSuper
   void dispose() {
+    _mounted = false;
     FdrHotReload.listenable.removeListener(updatePages);
     _pageMapper.dispose();
   }
