@@ -37,6 +37,13 @@ jobs:
           IS_CI: "true"
         run: flutter test # --coverage
 
+      - name: Check that typing mistakes do not compile
+        run: dart run tool/check_typing.dart
+
+      - name: Run example tests
+        working-directory: example
+        run: flutter test
+
       - name: Upload Flutter golden failures
         if: failure()
         uses: actions/upload-artifact@v4
@@ -46,3 +53,22 @@ jobs:
           if-no-files-found: ignore
           path: |
             **/failures/*.png
+
+  browser:
+    name: Browser history in headless Chrome
+
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
+        with:
+          flutter-version: "3.47.5"
+
+      - name: Install dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Drive the URL routing demo through the browser history
+        run: tool/browser_probe.sh
+

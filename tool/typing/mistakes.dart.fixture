@@ -1,0 +1,77 @@
+// Mistakes that must not compile. Every line marked `// error: <code>` has to
+// fail with that diagnostic, and no other line may fail;
+// tool/check_typing.dart copies this file into the example package to check.
+import 'package:fdr/fdr.dart';
+import 'package:fdr_example/url_routing/shop.dart';
+import 'package:flutter/widgets.dart';
+
+sealed class R {
+  const R();
+}
+
+final class A extends R {
+  const A(this.id);
+  final int id;
+}
+
+final class B extends R {
+  const B();
+}
+
+final class C extends R {
+  const C();
+}
+
+final a = Case<R, A>(Seg.int.atEnd.iso(to: A.new, from: (r) => r.id));
+final b = Case<R, B>(end.iso(to: (_) => const B(), from: (_) => ()));
+
+// a new route case nobody prints
+final missingCase = SumCodec<R>(
+  cases: [a, b],
+  select: (r) => switch (r) { // error: non_exhaustive_switch_expression
+    final A x => a.bind(x),
+    final B y => b.bind(y),
+  },
+);
+
+// printers swapped between cases
+final swapped = SumCodec<R>(
+  cases: [a, b],
+  select: (r) => switch (r) {
+    final A x => b.bind(x), // error: argument_type_not_assignable
+    final B y => a.bind(y), // error: argument_type_not_assignable
+    C() => throw UnimplementedError(),
+  },
+);
+
+// a route field retyped from int to String without updating its codec
+final retyped = Case<R, A>(
+  Seg.string.atEnd.iso(to: A.new, from: (r) => r.id), // error: argument_type_not_assignable, return_of_invalid_type_from_closure
+);
+
+// a page addressed by another navigator's route type
+List<DeclarativeNavigatable<OrdersRoute>> wrongPage() => [
+  const Text('x').page(onPop: null, route: const Profile()), // error: argument_type_not_assignable
+];
+
+// a typed link to a route of another navigator
+void wrongLink(FdrRouter<ShopRoute> router) {
+  router.delegate.navigate(const Profile()); // error: argument_type_not_assignable
+}
+
+// a pending route of the wrong type handed to a child
+DeclarativeNavigatable<OrdersRoute> wrongInitialRoute(Order order) =>
+    OrderNavigator(api: ShopApi(), order: order, reload: () async {}).mount(
+      embed: (child) => OrderAt(order.id, child),
+      unwrap: (route) => null,
+      initialRoute: const ItemReviews(), // error: argument_type_not_assignable
+    );
+
+// a loaded value handed to a navigator of another route type
+final wrongChild = AsyncNavigator<Order, OrderRoute>(
+  key: const ValueKey(1),
+  load: () async => const Order(1),
+  loading: const SizedBox(),
+  failed: (error, retry) => const SizedBox(),
+  builder: (order, reload) => const SettingsNavigator(), // error: return_of_invalid_type_from_closure
+);
