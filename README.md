@@ -45,5 +45,13 @@ final router = FdrRouter<AppRoute>(
 MaterialApp.router(routerConfig: router.config);
 ```
 
-In-app pops go back in the browser history instead of adding entries. See [doc/url-routing.md](doc/url-routing.md) for the design and `test/routing/example_app.dart` for a complete example.
+In-app pops go back in the browser history instead of adding entries.
+
+Also included:
+
+- `shell(...)` for a persistent tab bar with one nested navigator per tab;
+- `AsyncNavigator`, which loads data by id and hands the model to the child navigator, while deep links into the loaded levels keep working;
+- `watch(listenable)` to rebuild a navigator when app state owned elsewhere changes.
+
+See [doc/url-routing.md](doc/url-routing.md) for the design, and `example/lib/main_url_routing.dart` for a runnable demo (`flutter run -d chrome -t lib/main_url_routing.dart` in `example/`).
 

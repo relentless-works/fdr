@@ -7,6 +7,12 @@
 * Reuse navigator states when runtime type and key match (instead of index and type check), and give every page a stable key
 * Report an imperative `Navigator.pop` of a page without `onPop` instead of crashing; popup barrier taps go through `onPop`
 * Android back on the bottom page leaves the app unless a `PopScope` vetoes
+* Add `shell(...)`: a persistent page with one nested navigator per branch (e.g. tabs behind a bottom bar), each branch keeping its own stack; the URL follows the active branch
+* Add `AsyncNavigator` and `initialRoute` on mounts: children receive loaded data instead of ids, deep links into separately loaded levels keep their URL while loading
+* Restore a page's non-URL history state and in-app back traversal after a browser reload
+* Add `FdrRouterDelegate.navigate` for typed links from outside the navigator tree (e.g. push notifications)
+* Add `watch` on navigator states to rebuild when app state owned elsewhere changes, and `mounted`
+* `.page()` picks a Material or Cupertino route from the Theme platform when the route is created (Material on the web, following the app's `pageTransitionsTheme`)
 * Require Flutter 3.47
 
 ## 0.0.5
