@@ -1,3 +1,14 @@
+## 0.1.0-dev.1
+
+* Add type-safe URL routing: a sealed route type per navigator, bidirectional URL codecs, `FdrRouter` for `MaterialApp.router` (see `doc/url-routing.md`)
+* In-app pops go back in the browser history instead of adding entries; navigation while such a traversal is in flight is reported after it
+* **Breaking**: `DeclarativeNavigatable<R>`, `StatefulNavigator<R>`, `StatefulNavigatorState<N, R>` and `StatelessNavigator<R>` take a route type (`Never` for navigators without URLs)
+* **Breaking**: the pop contract moved to `Navigator.onDidRemovePage`, so `onPop` no longer runs when the state itself removed a page; `PageBuilder` now takes `canPop` and `key`; `FDRPage` is removed
+* Reuse navigator states when runtime type and key match (instead of index and type check), and give every page a stable key
+* Report an imperative `Navigator.pop` of a page without `onPop` instead of crashing; popup barrier taps go through `onPop`
+* Android back on the bottom page leaves the app unless a `PopScope` vetoes
+* Require Flutter 3.47
+
 ## 0.0.5
 
 * Support hot reload for all built-in navigators
