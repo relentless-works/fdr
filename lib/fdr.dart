@@ -24,6 +24,7 @@ export 'src/core/core.dart'
         StatelessNavigator;
 export 'src/async_navigator.dart' show AsyncChildBuilder, AsyncNavigator;
 export 'src/declarative_navigator.dart' show DeclarativeNavigator;
+export 'src/pages/fdr_page.dart' show FDRPage;
 export 'src/routing/browser_history.dart' show BrowserHistory, NoBrowserHistory;
 export 'src/routing/fdr_router.dart'
     show

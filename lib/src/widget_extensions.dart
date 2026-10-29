@@ -1,10 +1,8 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/core.dart';
-import 'pages/cupertino_page.dart';
-import 'pages/material_page.dart';
+import 'pages/fdr_page.dart';
 
 /// A shell: one page with persistent chrome around one nested navigator per
 /// branch, e.g. tabs behind a bottom navigation bar (see [ShellNavigatable]).
@@ -37,9 +35,7 @@ extension DeclarativeNavigatableFromWidget on Widget {
   }) {
     return DeclarativeNavigatablePage<R>(
       builder: ({required canPop, key}) {
-        return defaultTargetPlatform == TargetPlatform.android
-            ? FDRMaterialPage<Object?>(key: key, child: this, canPop: canPop)
-            : FDRCupertinoPage<Object?>(key: key, child: this, canPop: canPop);
+        return FDRPage<Object?>(key: key, child: this, canPop: canPop);
       },
       onPop: onPop,
       route: route,
