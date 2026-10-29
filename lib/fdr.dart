@@ -1,17 +1,34 @@
-/// Declarative (state-driven) routing for Flutter
-library fdr;
+/// Declarative (state-driven) routing for Flutter, with a typed URL layer.
+library;
 
-export './src/declarative_navigatable/declarative_navigatable.dart'
+export 'src/core/core.dart'
     show
         DeclarativeNavigatable,
         DeclarativeNavigatablePage,
+        FdrHotReload,
+        HistoryAction,
+        KeyedPage,
+        MountNavigator,
+        MountNavigatorWithLens,
+        MountedNavigatable,
+        RouteLens,
+        NavigatableToPageMapper,
         PageBuilder,
+        PopOverwriteNavigatable,
         Poppable,
+        RoutingScope,
         StatefulNavigator,
         StatefulNavigatorState,
-        PopOverwriteNavigatable;
-export './src/declarative_navigatable/stateless_navigator.dart'
-    show StatelessNavigator;
-export './src/declarative_navigator.dart' show DeclarativeNavigator;
-export './src/pages/fdr_page.dart' show FDRPage;
-export './src/widget_extensions.dart' show DeclarativeNavigatableFromWidget;
+        StatelessNavigator;
+export 'src/declarative_navigator.dart' show DeclarativeNavigator;
+export 'src/routing/browser_history.dart' show BrowserHistory, NoBrowserHistory;
+export 'src/routing/fdr_router.dart'
+    show
+        FdrRouteInformationParser,
+        FdrRouteInformationProvider,
+        FdrRouter,
+        FdrRouterDelegate,
+        RouteSnapshot;
+export 'src/routing/lens_codec.dart';
+export 'src/routing/url_codec.dart';
+export 'src/widget_extensions.dart' show DeclarativeNavigatableFromWidget;

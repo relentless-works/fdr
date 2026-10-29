@@ -1,16 +1,17 @@
 name: fdr
 description: "Fully declarative routing for Flutter applications, as easy as `Widget.build`."
-version: 0.0.5
+version: 0.1.0-dev.1
 homepage: "https://github.com/relentless-works/fdr"
 repository: "https://github.com/relentless-works/fdr"
 
 environment:
-  sdk: ">=3.4.4 <4.0.0"
-  flutter: ">=3.24.0"
+  sdk: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

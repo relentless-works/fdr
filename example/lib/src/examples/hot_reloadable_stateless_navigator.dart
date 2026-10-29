@@ -1,16 +1,16 @@
 import 'package:fdr/fdr.dart';
 import 'package:flutter/material.dart';
 
-class HotReloadableStatelessNavigator extends StatelessNavigator {
+class HotReloadableStatelessNavigator extends StatelessNavigator<Never> {
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     return [
       StatelessNavigatorDemo(greeting: 'hello, world!'),
     ];
   }
 }
 
-class StatelessNavigatorDemo extends StatelessNavigator {
+class StatelessNavigatorDemo extends StatelessNavigator<Never> {
   @visibleForTesting
   StatelessNavigatorDemo({
     required this.greeting,
@@ -19,7 +19,7 @@ class StatelessNavigatorDemo extends StatelessNavigator {
   final String greeting;
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     return [
       Scaffold(
         appBar: AppBar(

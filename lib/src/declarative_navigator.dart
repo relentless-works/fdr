@@ -1,16 +1,13 @@
-import 'package:fdr/fdr.dart';
-import 'package:fdr/src/navigatable_to_page_mapper.dart';
 import 'package:flutter/widgets.dart';
 
-class DeclarativeNavigator extends StatefulWidget {
-  final DeclarativeNavigatable navigator;
-  const DeclarativeNavigator({
-    super.key,
-    required this.navigator,
-  });
+import 'core/core.dart';
 
-  static final _hotReload = ChangeNotifier();
-  static Listenable get hotReload => _hotReload;
+/// Renders a navigator tree without a Router (no URL); kept for embedding a
+/// declarative stack inside an ordinary widget tree.
+class DeclarativeNavigator extends StatefulWidget {
+  const DeclarativeNavigator({super.key, required this.navigator});
+
+  final DeclarativeNavigatable<Object?> navigator;
 
   @override
   State<DeclarativeNavigator> createState() => _DeclarativeNavigatorState();
@@ -22,31 +19,25 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
   @override
   void initState() {
     super.initState();
-
-    final navigator = widget.navigator;
-
-    _pageMapper = NavigatableToPageMapper()..updatePages([navigator]);
+    _pageMapper = NavigatableToPageMapper(RoutingScope())
+      ..updatePages([widget.navigator]);
   }
 
   @override
   void reassemble() {
     super.reassemble();
-
-    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
-    DeclarativeNavigator._hotReload.notifyListeners();
+    FdrHotReload.trigger();
   }
 
   @override
   void didUpdateWidget(covariant DeclarativeNavigator oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    final navigator = widget.navigator;
-    final oldNavigator = oldWidget.navigator;
-
-    if (navigator != oldNavigator) {
-      _pageMapper.updatePages([navigator]);
+    if (widget.navigator != oldWidget.navigator) {
+      _pageMapper.updatePages([widget.navigator]);
     }
   }
+
+  List<KeyedPage> _keyed() => keyPages(_pageMapper.pages.value, (_) => null);
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +45,11 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
       valueListenable: _pageMapper.pages,
       builder: (context, pages, _) {
         return Navigator(
-          pages: pages.map((n) => n.page).toList(),
-          onDidRemovePage: (page) {
-            debugPrint('onPopPage: $page');
-          },
+          pages: [
+            for (final (i, (key, page)) in _keyed().indexed)
+              page.buildPage(defaultKey: key, forceCanPop: i == 0),
+          ],
+          onDidRemovePage: (page) => applyPopContract(page, _keyed),
         );
       },
     );
@@ -66,7 +58,6 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
   @override
   void dispose() {
     _pageMapper.dispose();
-
     super.dispose();
   }
 }

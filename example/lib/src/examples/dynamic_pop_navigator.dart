@@ -2,19 +2,19 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class DynamicPopNavigator extends StatefulNavigator {
+class DynamicPopNavigator extends StatefulNavigator<Never> {
   @override
-  StatefulNavigatorState<DynamicPopNavigator> createState() =>
+  StatefulNavigatorState<DynamicPopNavigator, Never> createState() =>
       _DynamicPopNavigatorState();
 }
 
 class _DynamicPopNavigatorState
-    extends StatefulNavigatorState<DynamicPopNavigator> {
+    extends StatefulNavigatorState<DynamicPopNavigator, Never> {
   bool showChild = true;
   bool canPop = false;
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     return [
       Scaffold(
         appBar: AppBar(

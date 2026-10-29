@@ -16,9 +16,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
       await tester.pumpWidgetBuilder(
-        DeclarativeNavigator(
-          navigator: _Navigator(),
-        ),
+        DeclarativeNavigator(navigator: _Navigator()),
         surfaceSize: size,
       );
 
@@ -55,18 +53,15 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
       await tester.pumpWidgetBuilder(
-        DeclarativeNavigator(
-          navigator: _Navigator(),
-        ),
+        DeclarativeNavigator(navigator: _Navigator()),
         surfaceSize: size,
-        wrapper: (child) => CupertinoApp(
-          home: child,
-          debugShowCheckedModeBanner: false,
-        ),
+        wrapper: (child) =>
+            CupertinoApp(home: child, debugShowCheckedModeBanner: false),
       );
 
-      final backButtonFinder =
-          find.text(String.fromCharCode(CupertinoIcons.back.codePoint));
+      final backButtonFinder = find.text(
+        String.fromCharCode(CupertinoIcons.back.codePoint),
+      );
 
       await screenMatchesGolden(tester, 'dynamic_back_button/ios/01_off');
 
@@ -81,11 +76,13 @@ void main() {
       await tester.tap(backButtonFinder);
 
       await screenMatchesGolden(
-          tester, 'dynamic_back_button/ios/03_transitioning_out',
-          customPump: (tester) async {
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-      });
+        tester,
+        'dynamic_back_button/ios/03_transitioning_out',
+        customPump: (tester) async {
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+        },
+      );
 
       await tester.pumpAndSettle();
 
@@ -95,10 +92,7 @@ void main() {
 }
 
 class _PlatformScaffold extends StatelessWidget {
-  const _PlatformScaffold({
-    required this.title,
-    required this.child,
-  });
+  const _PlatformScaffold({required this.title, required this.child});
 
   final Widget title;
 
@@ -108,33 +102,29 @@ class _PlatformScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     if (defaultTargetPlatform == TargetPlatform.android) {
       return Scaffold(
-        appBar: AppBar(
-          title: title,
-        ),
+        appBar: AppBar(title: title),
         body: child,
       );
     }
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: title,
-      ),
+      navigationBar: CupertinoNavigationBar(middle: title),
       child: SafeArea(child: child),
     );
   }
 }
 
-class _Navigator extends StatefulNavigator {
+class _Navigator extends StatefulNavigator<Never> {
   @override
-  StatefulNavigatorState<_Navigator> createState() => _NavigatorState();
+  StatefulNavigatorState<_Navigator, Never> createState() => _NavigatorState();
 }
 
-class _NavigatorState extends StatefulNavigatorState<_Navigator> {
+class _NavigatorState extends StatefulNavigatorState<_Navigator, Never> {
   bool showChild = true;
   bool canPop = false;
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     return [
       const _PlatformScaffold(
         title: Text('Home'),
@@ -150,10 +140,7 @@ class _NavigatorState extends StatefulNavigatorState<_Navigator> {
 }
 
 class _SwitchPage extends StatelessWidget {
-  const _SwitchPage({
-    required this.canPop,
-    required this.onCanPopChanged,
-  });
+  const _SwitchPage({required this.canPop, required this.onCanPopChanged});
 
   final bool canPop;
   final ValueSetter<bool> onCanPopChanged;
@@ -168,10 +155,7 @@ class _SwitchPage extends StatelessWidget {
               value: canPop,
               onChanged: onCanPopChanged,
             )
-          : CupertinoSwitch(
-              value: canPop,
-              onChanged: onCanPopChanged,
-            ),
+          : CupertinoSwitch(value: canPop, onChanged: onCanPopChanged),
     );
   }
 }

@@ -1,10 +1,11 @@
-import 'package:fdr/src/pages/fdr_page.dart';
 import 'package:flutter/cupertino.dart';
 
-/// Fork of Flutter's default `CupertinoPage` with a fix applied to the `PageRoute` it creates,
-/// which now forwards the `Page`'s `canPop` property, also as `impliesAppBarDismissal` (such that the back button can be dynamically updated).
-class FDRCupertinoPage<T> extends CupertinoPage<T> implements FDRPage {
+/// Fork of Flutter's `CupertinoPage`, see `FDRMaterialPage`.
+class FDRCupertinoPage<T> extends CupertinoPage<T> {
   const FDRCupertinoPage({
+    super.key,
+    super.name,
+    super.restorationId,
     required super.child,
     super.canPop,
     super.onPopInvoked,
@@ -13,7 +14,9 @@ class FDRCupertinoPage<T> extends CupertinoPage<T> implements FDRPage {
   @override
   Route<T> createRoute(BuildContext context) {
     return _PageBasedCupertinoPageRoute<T>(
-        page: this, allowSnapshotting: allowSnapshotting);
+      page: this,
+      allowSnapshotting: allowSnapshotting,
+    );
   }
 }
 
@@ -44,8 +47,9 @@ class _PageBasedCupertinoPageRoute<T> extends PageRoute<T>
   String get debugLabel => '${super.debugLabel}(${_page.name})';
 
   @override
-  bool get canPop => _page.canPop;
+  bool get canPop => super.canPop && _page.canPop;
 
   @override
-  bool get impliesAppBarDismissal => _page.canPop;
+  bool get impliesAppBarDismissal =>
+      super.impliesAppBarDismissal && _page.canPop;
 }

@@ -2,20 +2,20 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class ListDetailNavigator extends StatefulNavigator {
+class ListDetailNavigator extends StatefulNavigator<Never> {
   ListDetailNavigator();
 
   @override
-  StatefulNavigatorState<ListDetailNavigator> createState() =>
+  StatefulNavigatorState<ListDetailNavigator, Never> createState() =>
       _ListDetailNavigatorState();
 }
 
 class _ListDetailNavigatorState
-    extends StatefulNavigatorState<ListDetailNavigator> {
+    extends StatefulNavigatorState<ListDetailNavigator, Never> {
   int? selectedNumber;
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     final selectedNumber = this.selectedNumber;
 
     clear() => setState(() => this.selectedNumber = null);

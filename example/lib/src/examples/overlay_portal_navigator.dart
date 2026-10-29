@@ -2,9 +2,9 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class OverlayPortalNavigator extends StatelessNavigator {
+class OverlayPortalNavigator extends StatelessNavigator<Never> {
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     return [
       const OverlayTogglePage().page(onPop: null),
     ];

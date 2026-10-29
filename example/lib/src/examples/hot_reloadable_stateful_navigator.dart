@@ -4,16 +4,16 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class HotReloadableStatefulNavigator extends StatelessNavigator {
+class HotReloadableStatefulNavigator extends StatelessNavigator<Never> {
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     return [
       StatefulNavigatorDemo(initialCount: 100),
     ];
   }
 }
 
-class StatefulNavigatorDemo extends StatefulNavigator {
+class StatefulNavigatorDemo extends StatefulNavigator<Never> {
   @visibleForTesting
   StatefulNavigatorDemo({
     required this.initialCount,
@@ -22,12 +22,12 @@ class StatefulNavigatorDemo extends StatefulNavigator {
   final int initialCount;
 
   @override
-  StatefulNavigatorState<StatefulNavigatorDemo> createState() =>
+  StatefulNavigatorState<StatefulNavigatorDemo, Never> createState() =>
       _StatefulNavigatorDemoState();
 }
 
 class _StatefulNavigatorDemoState
-    extends StatefulNavigatorState<StatefulNavigatorDemo> {
+    extends StatefulNavigatorState<StatefulNavigatorDemo, Never> {
   late final Timer timer;
 
   late int ticks;
@@ -56,7 +56,7 @@ class _StatefulNavigatorDemoState
   }
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     return [
       CupertinoPageScaffold(
         navigationBar: const CupertinoNavigationBar(

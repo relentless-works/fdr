@@ -6,18 +6,18 @@ import 'package:fdr_example/src/examples/list_detail_navigator.dart';
 import 'package:fdr_example/src/examples/overlay_portal_navigator.dart';
 import 'package:flutter/cupertino.dart';
 
-class ExampleSelectionNavigator extends StatefulNavigator {
+class ExampleSelectionNavigator extends StatefulNavigator<Never> {
   @override
-  StatefulNavigatorState<ExampleSelectionNavigator> createState() =>
+  StatefulNavigatorState<ExampleSelectionNavigator, Never> createState() =>
       _ExampleSelectionNavigatorState();
 }
 
 class _ExampleSelectionNavigatorState
-    extends StatefulNavigatorState<ExampleSelectionNavigator> {
-  DeclarativeNavigatable? child;
+    extends StatefulNavigatorState<ExampleSelectionNavigator, Never> {
+  DeclarativeNavigatable<Never>? child;
 
   @override
-  List<DeclarativeNavigatable> build() {
+  List<DeclarativeNavigatable<Never>> build() {
     final child = this.child;
 
     return [
@@ -47,9 +47,9 @@ class ExampleSelectionPage extends StatelessWidget {
     required this.onExampleSelect,
   });
 
-  final Map<String, ValueGetter<DeclarativeNavigatable>> examples;
+  final Map<String, ValueGetter<DeclarativeNavigatable<Never>>> examples;
 
-  final ValueSetter<ValueGetter<DeclarativeNavigatable>> onExampleSelect;
+  final ValueSetter<ValueGetter<DeclarativeNavigatable<Never>>> onExampleSelect;
 
   @override
   Widget build(BuildContext context) {

@@ -1,10 +1,13 @@
-import 'package:fdr/src/pages/fdr_page.dart';
 import 'package:flutter/material.dart';
 
-/// Fork of Flutter's default `MaterialPage` with a fix applied to the `PageRoute` it creates,
-/// which now forwards the `Page`'s `canPop` property, also as `impliesAppBarDismissal` (such that the back button can be dynamically updated).
-class FDRMaterialPage<T> extends MaterialPage<T> implements FDRPage {
+/// Fork of Flutter's `MaterialPage` whose route forwards the page's `canPop`
+/// as `canPop` and `impliesAppBarDismissal`, so the AppBar back button follows
+/// the declarative pop contract (still needed on Flutter 3.47.5).
+class FDRMaterialPage<T> extends MaterialPage<T> {
   const FDRMaterialPage({
+    super.key,
+    super.name,
+    super.restorationId,
     required super.child,
     super.canPop,
     super.onPopInvoked,
@@ -13,7 +16,9 @@ class FDRMaterialPage<T> extends MaterialPage<T> implements FDRPage {
   @override
   Route<T> createRoute(BuildContext context) {
     return _PageBasedMaterialPageRoute<T>(
-        page: this, allowSnapshotting: allowSnapshotting);
+      page: this,
+      allowSnapshotting: allowSnapshotting,
+    );
   }
 }
 
@@ -29,9 +34,7 @@ class _PageBasedMaterialPageRoute<T> extends PageRoute<T>
   MaterialPage<T> get _page => settings as MaterialPage<T>;
 
   @override
-  Widget buildContent(BuildContext context) {
-    return _page.child;
-  }
+  Widget buildContent(BuildContext context) => _page.child;
 
   @override
   bool get maintainState => _page.maintainState;
@@ -43,8 +46,9 @@ class _PageBasedMaterialPageRoute<T> extends PageRoute<T>
   String get debugLabel => '${super.debugLabel}(${_page.name})';
 
   @override
-  bool get canPop => _page.canPop;
+  bool get canPop => super.canPop && _page.canPop;
 
   @override
-  bool get impliesAppBarDismissal => _page.canPop;
+  bool get impliesAppBarDismissal =>
+      super.impliesAppBarDismissal && _page.canPop;
 }
