@@ -14,7 +14,16 @@ flutter build web --no-web-resources-cdn --no-wasm-dry-run \
   -t lib/main_browser_probe.dart -o "$out" --base-href "$out/"
 
 work="$(mktemp -d)"
-trap 'kill "${pid:-}" 2>/dev/null || true; rm -rf "$work"' EXIT
+cleanup() {
+  if [[ -n "${pid:-}" ]]; then
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  fi
+  # Chrome's helpers can still hold files in the profile; the probe's result
+  # must not depend on removing them
+  rm -rf "$work" 2>/dev/null || true
+}
+trap cleanup EXIT
 "$chrome" --headless=new --no-first-run --no-default-browser-check \
   --allow-file-access-from-files --enable-unsafe-swiftshader \
   --use-angle=swiftshader --enable-logging=stderr --v=0 \
