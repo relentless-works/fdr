@@ -116,6 +116,7 @@ void main() {
     OrdersNavigatorState.applied = 0;
     OrdersNavigatorState.builds = 0;
     OrdersNavigatorState.detailPops = 0;
+    homeChromeCreated = 0;
     TestWidgetsFlutterBinding.ensureInitialized();
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -642,8 +643,9 @@ void main() {
     final orders = OrdersNavigatorState.latest!;
     // same event: an unrelated state change, then an imperative pop that
     // still targets the route built before that change
+    final tabNavigator = Navigator.of(tester.element(find.text('Order 42')));
     orders.setState(() => orders.counter++);
-    router.delegate.navigatorKey.currentState!.pop();
+    tabNavigator.pop();
     await tester.pumpAndSettle();
     expect(find.text('Order 42'), findsNothing);
     expect(OrdersNavigatorState.detailPops, 1);
@@ -725,5 +727,104 @@ void main() {
     await browserNavigatesTo(tester, '/orders', state: envelope(1));
     expect(router.provider.pendingBacks, 0);
     expect(router.provider.shadowIndex, 0);
+  });
+
+  group('persistent tab shell', () {
+    testWidgets('the bar persists while pages change inside a tab', (
+      tester,
+    ) async {
+      final router = await pumpApp(tester, initialUrl: '/orders');
+      await tester.tap(find.byKey(const Key('open-42')));
+      await tester.pumpAndSettle();
+      // the detail page is pushed inside the tab; the bar stays on screen
+      expect(find.text('Order 42'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('nav-settings')));
+      await tester.pumpAndSettle();
+      expect(url(router), '/settings');
+      expect(homeChromeCreated, 1);
+      // the app's navigator only ever holds the shell page
+      final root = tester.widget<Navigator>(
+        find.byKey(router.delegate.navigatorKey),
+      );
+      expect(root.pages, hasLength(1));
+    });
+
+    testWidgets('each tab keeps its stack and widget state', (tester) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/42');
+      final detail = tester.element(find.text('Order 42'));
+      await tester.tap(find.byKey(const Key('nav-settings')));
+      await tester.pumpAndSettle();
+      expect(find.text('Order 42'), findsNothing);
+      expect(url(router), '/settings');
+      await tester.tap(find.byKey(const Key('nav-orders')));
+      await tester.pumpAndSettle();
+      expect(url(router), '/orders/42');
+      // the very same element: nothing was rebuilt from scratch
+      expect(tester.element(find.text('Order 42')), same(detail));
+      expect(OrdersNavigatorState.created, 1);
+    });
+
+    testWidgets('a URL into another tab selects it and opens the page there', (
+      tester,
+    ) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/42');
+      final ordersApplied = OrdersNavigatorState.applied;
+      await browserNavigatesTo(tester, '/settings/profile');
+      expect(find.text('Profile'), findsOneWidget);
+      expect(url(router), '/settings/profile');
+      // the orders tab was not addressed and keeps its detail page
+      expect(OrdersNavigatorState.applied, ordersApplied);
+      await tester.tap(find.byKey(const Key('nav-orders')));
+      await tester.pumpAndSettle();
+      expect(find.text('Order 42'), findsOneWidget);
+      expect(homeChromeCreated, 1);
+    });
+
+    testWidgets('Android back pops the active tab only, then leaves the app', (
+      tester,
+    ) async {
+      final router = await pumpApp(tester, initialUrl: '/orders/42');
+      await tester.tap(find.byKey(const Key('nav-settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('profile')));
+      await tester.pumpAndSettle();
+      expect(url(router), '/settings/profile');
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(url(router), '/settings');
+      expect(find.text('Settings'), findsOneWidget);
+
+      // the settings tab is at its root: back leaves the app, the orders
+      // tab's detail page is untouched
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        platformLog.where((c) => c.method == 'SystemNavigator.pop'),
+        hasLength(1),
+      );
+      await tester.tap(find.byKey(const Key('nav-orders')));
+      await tester.pumpAndSettle();
+      expect(find.text('Order 42'), findsOneWidget);
+    });
+
+    testWidgets('a pop inside a tab is a browser back', (tester) async {
+      final history = FakeBrowserHistory();
+      final router = await pumpApp(
+        tester,
+        initialUrl: '/settings',
+        browserHistory: history,
+      );
+      await tester.tap(find.byKey(const Key('profile')));
+      await tester.pumpAndSettle();
+      expect(router.provider.shadowHistory, ['/settings', '/settings/profile']);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(url(router), '/settings');
+      expect(history.deltas, [-1]);
+    });
   });
 }

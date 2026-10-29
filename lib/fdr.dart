@@ -17,6 +17,8 @@ export 'src/core/core.dart'
         PopOverwriteNavigatable,
         Poppable,
         RoutingScope,
+        ShellBuilder,
+        ShellNavigatable,
         StatefulNavigator,
         StatefulNavigatorState,
         StatelessNavigator;
@@ -31,4 +33,5 @@ export 'src/routing/fdr_router.dart'
         RouteSnapshot;
 export 'src/routing/lens_codec.dart';
 export 'src/routing/url_codec.dart';
-export 'src/widget_extensions.dart' show DeclarativeNavigatableFromWidget;
+export 'src/widget_extensions.dart'
+    show DeclarativeNavigatableFromWidget, shell;

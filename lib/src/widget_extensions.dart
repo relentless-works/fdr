@@ -6,6 +6,26 @@ import 'core/core.dart';
 import 'pages/cupertino_page.dart';
 import 'pages/material_page.dart';
 
+/// A shell: one page with persistent chrome around one nested navigator per
+/// branch, e.g. tabs behind a bottom navigation bar (see [ShellNavigatable]).
+///
+/// [key] identifies the shell page in its owner's stack; it must be stable,
+/// so that a URL change inside a branch does not replace the shell page.
+DeclarativeNavigatable<R> shell<R>({
+  required List<DeclarativeNavigatable<R>> branches,
+  required int active,
+  required ShellBuilder builder,
+  VoidCallback? onPop,
+  LocalKey key = const ValueKey('fdr:shell'),
+}) {
+  return ShellNavigatable<R>(
+    branches: branches,
+    active: active,
+    builder: builder,
+    page: (body) => body.page<R>(onPop: onPop, key: key),
+  );
+}
+
 extension DeclarativeNavigatableFromWidget on Widget {
   /// A full-screen page. [route] addresses it in the enclosing navigator's
   /// route type; omit it for pages without a URL. Provide `onPop: null` if

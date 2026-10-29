@@ -273,38 +273,89 @@ class HomeNavigatorState
   }
 
   void switchTab(HomeTab next) {
+    if (next == tab) return;
     setState(() => tab = next, history: HistoryAction.push);
   }
 
-  // both tab navigators stay in the list (the inactive one builds no pages),
-  // so each tab's stack survives switching tabs
+  // a persistent tab bar: each tab is a nested navigator with its own stack
   @override
   List<DeclarativeNavigatable<HomeRoute>> build() => [
-    OrdersNavigator(
-      active: tab == HomeTab.orders,
-      onSwitchTab: switchTab,
-      onLogout: navigator.onLogout,
-    ).mountWith(ordersLens),
-    SettingsNavigator(
-      active: tab == HomeTab.settings,
-      onSwitchTab: switchTab,
-    ).mount(
-      embed: SettingsAt.new,
-      unwrap: (r) => switch (r) {
-        SettingsAt(:final child) => child,
-        OrdersAt() => null,
-      },
+    shell(
+      active: tab.index,
+      branches: [
+        OrdersNavigator(
+          onSwitchTab: switchTab,
+          onLogout: navigator.onLogout,
+        ).mountWith(ordersLens),
+        SettingsNavigator(onSwitchTab: switchTab).mount(
+          embed: SettingsAt.new,
+          unwrap: (r) => switch (r) {
+            SettingsAt(:final child) => child,
+            OrdersAt() => null,
+          },
+        ),
+      ],
+      builder: (context, branches, active) => HomeChrome(
+        branches: branches,
+        active: active,
+        onSelect: (i) => switchTab(HomeTab.values[i]),
+      ),
     ),
   ];
 }
 
-class OrdersNavigator extends StatefulNavigator<OrdersRoute> {
-  const OrdersNavigator({
+class HomeChrome extends StatefulWidget {
+  const HomeChrome({
+    super.key,
+    required this.branches,
     required this.active,
-    required this.onSwitchTab,
-    required this.onLogout,
+    required this.onSelect,
   });
-  final bool active;
+  final List<Widget> branches;
+  final int active;
+  final ValueChanged<int> onSelect;
+
+  @override
+  State<HomeChrome> createState() => _HomeChromeState();
+}
+
+class _HomeChromeState extends State<HomeChrome> {
+  static int created = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    created++;
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: IndexedStack(index: widget.active, children: widget.branches),
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: widget.active,
+      onDestinationSelected: widget.onSelect,
+      destinations: const [
+        NavigationDestination(
+          key: Key('nav-orders'),
+          icon: Icon(Icons.list),
+          label: 'Orders tab',
+        ),
+        NavigationDestination(
+          key: Key('nav-settings'),
+          icon: Icon(Icons.settings),
+          label: 'Settings tab',
+        ),
+      ],
+    ),
+  );
+}
+
+/// How often the persistent chrome was created (stays 1 while it persists).
+int get homeChromeCreated => _HomeChromeState.created;
+set homeChromeCreated(int value) => _HomeChromeState.created = value;
+
+class OrdersNavigator extends StatefulNavigator<OrdersRoute> {
+  const OrdersNavigator({required this.onSwitchTab, required this.onLogout});
   final ValueChanged<HomeTab> onSwitchTab;
   final VoidCallback onLogout;
 
@@ -359,7 +410,6 @@ class OrdersNavigatorState
   @override
   List<DeclarativeNavigatable<OrdersRoute>> build() {
     builds++;
-    if (!navigator.active) return const [];
     return [
       OrderListPage(
         counter: counter,
@@ -404,8 +454,7 @@ class OrdersNavigatorState
 }
 
 class SettingsNavigator extends StatefulNavigator<SettingsRoute> {
-  const SettingsNavigator({required this.active, required this.onSwitchTab});
-  final bool active;
+  const SettingsNavigator({required this.onSwitchTab});
   final ValueChanged<HomeTab> onSwitchTab;
 
   @override
@@ -426,7 +475,6 @@ class SettingsNavigatorState
 
   @override
   List<DeclarativeNavigatable<SettingsRoute>> build() {
-    if (!navigator.active) return const [];
     return [
       SettingsPage(
         onProfile: () => navigate(const SettingsProfile()),

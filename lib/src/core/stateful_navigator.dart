@@ -24,6 +24,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
   late final NavigatableToPageMapper _pageMapper;
 
   RoutingScope? _scope;
+  String? Function(Object route)? _routeKey;
 
   ValueListenable<List<DeclarativeNavigatablePage<Object?>>> get pages {
     return _pageMapper.pages;
@@ -35,7 +36,10 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R> {
 
   @mustCallSuper
   void initState() {
-    _pageMapper = NavigatableToPageMapper(_scope);
+    _pageMapper = NavigatableToPageMapper(
+      _scope,
+      _routeKey ?? NavigatableToPageMapper._noRouteKey,
+    );
     FdrHotReload.listenable.addListener(updatePages);
   }
 

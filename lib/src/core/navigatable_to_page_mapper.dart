@@ -11,13 +11,20 @@ part of 'core.dart';
 /// 3. non-URL state: [historyState] aggregates the states' `historyState`
 ///    into a JSON tree keyed by index and navigator type.
 final class NavigatableToPageMapper {
-  NavigatableToPageMapper(this._scope);
+  NavigatableToPageMapper(this._scope, [this.routeKey = _noRouteKey]);
 
   final RoutingScope? _scope;
+
+  /// Identity of a route of this mapper's route type, for page keys; derived
+  /// by the router from the root codec through the chain of mounts.
+  final String? Function(Object route) routeKey;
+
+  static String? _noRouteKey(Object route) => null;
 
   final _pages = ValueNotifier<List<DeclarativeNavigatablePage<Object?>>>([]);
 
   var _activeStatesByIndex = <_AnyState?>[];
+  var _activeShellsByIndex = <_ShellHost?>[];
   var _navigatables = <DeclarativeNavigatable<Object?>>[];
   Object? _incomingRoute;
 
@@ -47,6 +54,7 @@ final class NavigatableToPageMapper {
   void _rebuildPages({required bool reconcile}) {
     final pages = <DeclarativeNavigatablePage<Object?>>[];
     final states = List<_AnyState?>.filled(_navigatables.length, null);
+    final shells = List<_ShellHost?>.filled(_navigatables.length, null);
 
     for (final (index, outerItem) in _navigatables.indexed) {
       var item = outerItem;
@@ -101,6 +109,10 @@ final class NavigatableToPageMapper {
             state = item.createState();
             state._navigator = item;
             state._scope = _scope;
+            final lift = embed;
+            state._routeKey = lift == null
+                ? routeKey
+                : (route) => routeKey(lift(route)!);
             state.initState();
             if (childRoute != null) {
               state.applyRoute(childRoute);
@@ -127,6 +139,26 @@ final class NavigatableToPageMapper {
           }
           pages.addAll(childPages);
 
+        case ShellNavigatable<Object?>():
+          final existing = index < _activeShellsByIndex.length
+              ? _activeShellsByIndex[index]
+              : null;
+          final _ShellHost host;
+          if (existing != null) {
+            host = existing;
+            _activeShellsByIndex[index] = null;
+            if (reconcile) host.update(item, _incomingRoute);
+          } else {
+            assert(reconcile, 'new shell while only re-flattening');
+            host = _ShellHost(_scope, routeKey, _onChildPagesChanged)
+              ..update(item, _incomingRoute);
+          }
+          shells[index] = host;
+          final page = host.page();
+          pages.add(
+            hasPopOverwrite ? page.withOnPop(onPop: popOverwrite) : page,
+          );
+
         case PopOverwriteNavigatable<Object?>():
         case MountedNavigatable<Object?, Object?>():
           throw StateError('wrappers are unwrapped above');
@@ -138,6 +170,10 @@ final class NavigatableToPageMapper {
       unusedState.dispose();
     }
     _activeStatesByIndex = states;
+    for (final unusedShell in _activeShellsByIndex.nonNulls) {
+      unusedShell.dispose();
+    }
+    _activeShellsByIndex = shells;
 
     route = _topRoute(pages);
     _pages.value = pages;
@@ -164,6 +200,10 @@ final class NavigatableToPageMapper {
         if (children != null) 'c': children,
       };
     }
+    for (final (index, shell) in _activeShellsByIndex.indexed) {
+      final branches = shell?.historyState;
+      if (branches != null) tree['$index'] = {'b': branches};
+    }
     return tree.isEmpty ? null : tree;
   }
 
@@ -176,6 +216,10 @@ final class NavigatableToPageMapper {
       if (entry.containsKey('s')) state.restoreHistoryState(entry['s']);
       state._pageMapper.restoreHistoryState(entry['c']);
     }
+    for (final (index, shell) in _activeShellsByIndex.indexed) {
+      final entry = tree['$index'];
+      if (shell != null && entry is Map) shell.restoreHistoryState(entry['b']);
+    }
   }
 
   void dispose() {
@@ -184,6 +228,10 @@ final class NavigatableToPageMapper {
       state.dispose();
     }
     _activeStatesByIndex = [];
+    for (final shell in _activeShellsByIndex.nonNulls) {
+      shell.dispose();
+    }
+    _activeShellsByIndex = [];
     _pages.dispose();
   }
 }

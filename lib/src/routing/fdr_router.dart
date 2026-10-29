@@ -18,7 +18,7 @@ class FdrRouterDelegate<R extends Object>
     with ChangeNotifier {
   FdrRouterDelegate({required this.root, required this.codec, this.pageKey}) {
     scope.stackChange = _stackChange;
-    _mapper = NavigatableToPageMapper(scope)
+    _mapper = NavigatableToPageMapper(scope, _routeKey)
       ..pages.addListener(_onPagesChanged)
       ..updatePages([_rootMount(root)]);
     _reportedStack = _routedStack();
@@ -109,9 +109,15 @@ class FdrRouterDelegate<R extends Object>
 
   List<KeyedPage> _keyed() => keyPages(_mapper.pages.value, _routeKey);
 
-  List<LocalKey> _routedStack() => [
-    for (final (key, page) in _keyed())
-      if (page.route != null) key,
+  List<LocalKey> _routedStack() => _routedKeys(_keyed());
+
+  // routed page keys, looking into the active branch of shell pages
+  static List<LocalKey> _routedKeys(List<KeyedPage> pages) => [
+    for (final (key, page) in pages)
+      if (page.nestedPages case final nested?)
+        ..._routedKeys(nested())
+      else if (page.route != null)
+        key,
   ];
 
   // pages only removed from the top is a pop, pages only added on top a push

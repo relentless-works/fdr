@@ -16,6 +16,7 @@ class DeclarativeNavigatablePage<R> implements DeclarativeNavigatable<R> {
     required this.onPop,
     this.route,
     this.key,
+    this.nestedPages,
   }) : _builder = builder; // ignore: prefer_initializing_formals
 
   final PageBuilder _builder;
@@ -33,6 +34,10 @@ class DeclarativeNavigatablePage<R> implements DeclarativeNavigatable<R> {
   /// routed page below for pages without a route).
   final LocalKey? key;
 
+  /// For a shell page: the keyed pages of its active branch, which the
+  /// router's history logic looks into (a pop inside a tab is a pop).
+  final List<KeyedPage> Function()? nestedPages;
+
   /// [forceCanPop] is set for the bottom page: `Navigator.maybePop` then
   /// bubbles (Android back leaves the app) instead of being vetoed, while a
   /// `PopScope` inside the page can still veto.
@@ -49,6 +54,7 @@ class DeclarativeNavigatablePage<R> implements DeclarativeNavigatable<R> {
       onPop: onPop,
       route: route,
       key: key,
+      nestedPages: nestedPages,
     );
   }
 
@@ -59,6 +65,7 @@ class DeclarativeNavigatablePage<R> implements DeclarativeNavigatable<R> {
       onPop: onPop,
       route: route,
       key: key,
+      nestedPages: nestedPages,
     );
   }
 }

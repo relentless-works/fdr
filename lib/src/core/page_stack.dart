@@ -17,8 +17,15 @@ List<KeyedPage> keyPages(
   for (final page in pages) {
     final route = page.route;
     final base = route == null ? null : routeKey(route);
+    final explicit = page.key;
     final String derived;
-    if (base != null) {
+    if (explicit != null) {
+      // pages above an explicitly keyed page (e.g. a shell) stay stable
+      // while its route changes
+      below = '$explicit';
+      offset = 0;
+      derived = below;
+    } else if (base != null) {
       final n = seen.update(base, (c) => c + 1, ifAbsent: () => 0);
       below = n == 0 ? base : '$base#$n';
       offset = 0;
