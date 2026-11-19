@@ -1,5 +1,7 @@
 // ignore_for_file: unused_element
 
+import 'dart:io';
+
 import 'package:fdr/fdr.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -10,84 +12,77 @@ import 'package:golden_toolkit/golden_toolkit.dart';
 void main() {
   const size = Size(375, 600);
 
+  final android = (
+    platform: TargetPlatform.android,
+    backButton: find.byType(BackButtonIcon),
+    toggle: find.byType(Switch),
+  );
+  final iOS = (
+    platform: TargetPlatform.iOS,
+    backButton: find.text(String.fromCharCode(CupertinoIcons.back.codePoint)),
+    toggle: find.byType(CupertinoSwitch),
+  );
+
+  Future<void> pumpNavigator(
+    WidgetTester tester,
+    TargetPlatform platform,
+  ) async {
+    // TODO: Would be better to use `TestVariant` once https://github.com/eBay/flutter_glove_box/issues/179 is fixed
+    debugDefaultTargetPlatformOverride = platform;
+    // reset also when the test fails, which would otherwise fail on it too
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidgetBuilder(
+      DeclarativeNavigator(navigator: _Navigator()),
+      surfaceSize: size,
+      wrapper: platform == TargetPlatform.iOS
+          ? (child) =>
+                CupertinoApp(home: child, debugShowCheckedModeBanner: false)
+          : null,
+    );
+  }
+
   group('Dynamic back button', () {
+    for (final (:platform, :backButton, :toggle) in [android, iOS]) {
+      testWidgets('${platform.name}: shown once the page has onPop, and pops '
+          'the page', (tester) async {
+        await pumpNavigator(tester, platform);
+        expect(backButton, findsNothing);
+
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(backButton, findsOneWidget);
+
+        await tester.tap(backButton);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        final page = ModalRoute.of(tester.element(find.byType(_SwitchPage)))!;
+        expect(page.animation!.status, AnimationStatus.reverse);
+
+        await tester.pumpAndSettle();
+        expect(find.byType(_SwitchPage), findsNothing);
+        expect(find.text('Home'), findsOneWidget);
+      });
+    }
+
+    // The goldens were rendered on macOS, where CI runs: text renders
+    // differently on other hosts. A frame in the middle of a page
+    // transition is not compared, as it shows the SDK's transition more
+    // than fdr (the test above checks that the page animates out).
+    final skipGoldens = !Platform.isMacOS;
+
     testGoldens('Android', (tester) async {
-      // TODO: Would be better to use `TestVariant` once https://github.com/eBay/flutter_glove_box/issues/179 is fixed
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-
-      await tester.pumpWidgetBuilder(
-        DeclarativeNavigator(navigator: _Navigator()),
-        surfaceSize: size,
-      );
-
-      final backButtonFinder = find.byType(BackButtonIcon);
-
+      await pumpNavigator(tester, TargetPlatform.android);
       await screenMatchesGolden(tester, 'dynamic_back_button/android/01_off');
-
-      expect(backButtonFinder, findsNothing);
-
-      await tester.tap(find.byType(Switch));
-
+      await tester.tap(android.toggle);
       await screenMatchesGolden(tester, 'dynamic_back_button/android/02_on');
-
-      expect(backButtonFinder, findsOneWidget);
-
-      await tester.tap(backButtonFinder);
-
-      await screenMatchesGolden(
-        tester,
-        'dynamic_back_button/android/03_transitioning_out',
-        customPump: (tester) async {
-          await tester.pump();
-
-          await tester.pump(const Duration(milliseconds: 50));
-        },
-      );
-
-      await tester.pumpAndSettle();
-
-      debugDefaultTargetPlatformOverride = null;
-    });
+    }, skip: skipGoldens);
 
     testGoldens('iOS', (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-
-      await tester.pumpWidgetBuilder(
-        DeclarativeNavigator(navigator: _Navigator()),
-        surfaceSize: size,
-        wrapper: (child) =>
-            CupertinoApp(home: child, debugShowCheckedModeBanner: false),
-      );
-
-      final backButtonFinder = find.text(
-        String.fromCharCode(CupertinoIcons.back.codePoint),
-      );
-
+      await pumpNavigator(tester, TargetPlatform.iOS);
       await screenMatchesGolden(tester, 'dynamic_back_button/ios/01_off');
-
-      expect(backButtonFinder, findsNothing);
-
-      await tester.tap(find.byType(CupertinoSwitch));
-
+      await tester.tap(iOS.toggle);
       await screenMatchesGolden(tester, 'dynamic_back_button/ios/02_on');
-
-      expect(backButtonFinder, findsOneWidget);
-
-      await tester.tap(backButtonFinder);
-
-      await screenMatchesGolden(
-        tester,
-        'dynamic_back_button/ios/03_transitioning_out',
-        customPump: (tester) async {
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 100));
-        },
-      );
-
-      await tester.pumpAndSettle();
-
-      debugDefaultTargetPlatformOverride = null;
-    });
+    }, skip: skipGoldens);
   });
 }
 
