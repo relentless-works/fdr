@@ -104,6 +104,11 @@ void main() {
       expect(_parse('/a/1'), isNot(const Url(['a', '1'])));
     });
 
+    test('scheme, authority and fragment are not part of a Url', () {
+      expect('${_parse('https://shop.example/x?a=1#frag')}', '/x?a=1');
+      expect('${_parse('/x#frag?a=1')}', '/x');
+    });
+
     test('rest hands the remainder and the query to the next level', () {
       final rest = _parse('/a/b/c?q=1').rest(1).rest(1);
       expect(rest.segments, ['c']);

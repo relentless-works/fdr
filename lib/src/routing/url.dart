@@ -60,8 +60,9 @@ class NotFound implements Exception {
 final class Url {
   const Url(this.segments, {this.query = const {}});
 
-  /// Parses the path and query of [uri]; empty segments (a trailing slash)
-  /// are dropped, and dot segments are resolved, also in a relative path
+  /// Parses the path and query of [uri]; its scheme, authority and fragment
+  /// are ignored. Empty segments (a trailing slash) are dropped, and dot
+  /// segments are resolved, also in a relative path
   /// (`../x` is `/x`). Percent-encoding that is not UTF-8 (`%E9` from an old
   /// Latin-1 link) is read as Latin-1 instead of failing, and printed as
   /// UTF-8.
