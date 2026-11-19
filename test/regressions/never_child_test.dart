@@ -44,14 +44,23 @@ void main() {
     tester,
   ) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
     final router = FdrRouter<RR>(root: const Root(), fromUrl: RR.fromUrl);
+    addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pump();
     expect(find.text('help'), findsOneWidget);
 
+    // it takes no route (HelpState has no applyRoute), and its page stays
+    // on top of B
     router.open(const RB());
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(router.currentUrl, '/b');
+    expect(find.text('help'), findsOneWidget);
+    expect(find.text('B', skipOffstage: false), findsOneWidget);
+    expect(find.text('B'), findsNothing);
   });
 }

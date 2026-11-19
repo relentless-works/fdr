@@ -41,12 +41,23 @@ class RootState extends StatefulNavigatorState<Root, RR> {
 void main() {
   testWidgets('a link in a modal bottom sheet', (tester) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
     final router = FdrRouter<RR>(root: const Root(), fromUrl: RR.fromUrl);
+    addTearDown(router.dispose);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pump();
     await tester.tap(find.text('sheet'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('to B'), findsOneWidget);
+
+    // it resolves at the navigator that owns the Navigator, and opens there
+    await tester.tap(find.text('to B'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(router.currentUrl, '/b');
+    expect(find.text('B'), findsOneWidget);
+    expect(router.provider.shadowHistory, ['/', '/b']);
   });
 }
