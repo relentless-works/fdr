@@ -48,6 +48,26 @@ final class NavHost<R> {
       child: ValueListenableBuilder(
         valueListenable: _mapper.pages,
         builder: (context, pages, _) {
+          if (pages.isEmpty) {
+            // Flutter's Navigator fails on an empty list, without a word
+            // on where it came from
+            assert(() {
+              final root = _mapper._entries.map((entry) => entry.runtimeType);
+              throw FlutterError.fromParts([
+                ErrorSummary('fdr: ${_target._description} shows no page.'),
+                ErrorDescription(
+                  'The build of ${root.join(', ')} and its child navigators '
+                  'returned no page. A navigator tree has to show at least '
+                  'one.',
+                ),
+                ErrorHint(
+                  'Check for a collection-if without a page below it, and '
+                  'for child navigators that can be empty.',
+                ),
+              ]);
+            }());
+            return const SizedBox.shrink();
+          }
           return Navigator(
             key: key,
             pages: [
