@@ -131,14 +131,16 @@ final class _PageMapper {
       rethrow;
     }
 
+    // The pass is done. A dispose that throws is reported: thrown, it would
+    // leave the states of this pass neither kept nor disposed.
     for (final unusedState in _statesByIndex.nonNulls) {
       if (reused.contains(unusedState)) continue;
       unusedState._pageMapper.pages.removeListener(_onChildPagesChanged);
-      unusedState.dispose();
+      _guarded(unusedState.dispose);
     }
     _statesByIndex = states;
     for (final unusedTabs in _tabsByIndex.nonNulls) {
-      if (!reused.contains(unusedTabs)) unusedTabs.dispose();
+      if (!reused.contains(unusedTabs)) _guarded(unusedTabs.dispose);
     }
     _tabsByIndex = tabs;
 
@@ -152,7 +154,7 @@ final class _PageMapper {
     _guarded(state.dispose);
   }
 
-  // cleanup after a throw: a second error must not hide the first
+  // cleanup, also after a throw: a second error must not hide the first
   static void _guarded(VoidCallback cleanup) {
     try {
       cleanup();
