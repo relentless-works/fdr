@@ -118,13 +118,16 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   /// state is disposed: for navigation that follows app state owned
   /// elsewhere (a session, a view model), which [build] then reads directly.
   /// Call it in [initState]; [history] applies to the resulting changes.
-  void watch(
+  ///
+  /// Returns a callback that ends the subscription earlier, e.g. in
+  /// [didUpdateNavigator] when the navigator brings another listenable.
+  VoidCallback watch(
     Listenable listenable, {
     HistoryAction history = HistoryAction.auto,
   }) {
     void rebuild() => setState(() {}, history: history);
     listenable.addListener(rebuild);
-    _unsubscribe.add(() => listenable.removeListener(rebuild));
+    return _subscribe(() => listenable.removeListener(rebuild));
   }
 
   /// Rebuilds this navigator on every event of [stream] (e.g. a bloc's
@@ -132,17 +135,32 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   /// store with a current value (a bloc's `state`), [build] reads that, and
   /// page `onPop`s can call the store directly: the page goes once the store
   /// has emitted its new state.
-  void listen(
+  ///
+  /// Error events go to [onError]; without it they are unhandled, as with
+  /// [Stream.listen]. Returns a callback that ends the subscription earlier,
+  /// like [watch].
+  VoidCallback listen(
     Stream<Object?> stream, {
     HistoryAction history = HistoryAction.auto,
+    void Function(Object error, StackTrace stackTrace)? onError,
   }) {
     final subscription = stream.listen(
       (_) => setState(() {}, history: history),
+      onError: onError,
     );
-    _unsubscribe.add(() => unawaited(subscription.cancel()));
+    return _subscribe(() => unawaited(subscription.cancel()));
   }
 
   final _unsubscribe = <VoidCallback>[];
+
+  // the returned callback unsubscribes once, also when called again or
+  // after dispose
+  VoidCallback _subscribe(VoidCallback unsubscribe) {
+    _unsubscribe.add(unsubscribe);
+    return () {
+      if (_unsubscribe.remove(unsubscribe)) unsubscribe();
+    };
+  }
 
   /// Navigates to [route] like a link: the route is placed in the root's
   /// route type through the parents' [NestedNavigator.at] and applied from
@@ -178,10 +196,11 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
 
   @mustCallSuper
   void dispose() {
-    for (final unsubscribe in _unsubscribe) {
+    final subscriptions = [..._unsubscribe];
+    _unsubscribe.clear();
+    for (final unsubscribe in subscriptions) {
       unsubscribe();
     }
-    _unsubscribe.clear();
     _mounted = false;
     _pageMapper.dispose();
   }
