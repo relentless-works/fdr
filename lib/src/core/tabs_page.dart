@@ -18,22 +18,37 @@ final class _TabsHost {
       entry.index >= 0 && entry.index < entry.tabs.length,
       'tab index ${entry.index} out of range',
     );
-    _entry = entry;
-    while (_tabs.length > entry.tabs.length) {
-      _tabs.removeLast()
-        ..pages.removeListener(_onTabChanged)
-        ..dispose();
-    }
-    for (final (i, tab) in entry.tabs.indexed) {
-      if (i == _tabs.length) {
-        _tabs.add(_PageMapper(_owner));
-      } else {
-        _tabs[i].pages.removeListener(_onTabChanged);
+    // a tab whose update throws leaves the tabs and the entry as they were
+    final before = _tabs.length;
+    try {
+      for (final (i, tab) in entry.tabs.indexed) {
+        if (i == _tabs.length) {
+          _tabs.add(_PageMapper(_owner));
+        } else {
+          _tabs[i].pages.removeListener(_onTabChanged);
+        }
+        try {
+          _tabs[i].updatePages([tab], incomingRoute: incomingRoute);
+        } finally {
+          _tabs[i].pages.addListener(_onTabChanged);
+        }
       }
-      _tabs[i]
-        ..updatePages([tab], incomingRoute: incomingRoute)
-        ..pages.addListener(_onTabChanged);
+    } on Object {
+      while (_tabs.length > before) {
+        _removeLastTab();
+      }
+      rethrow;
     }
+    while (_tabs.length > entry.tabs.length) {
+      _removeLastTab();
+    }
+    _entry = entry;
+  }
+
+  void _removeLastTab() {
+    _tabs.removeLast()
+      ..pages.removeListener(_onTabChanged)
+      ..dispose();
   }
 
   _PageMapper get _activeTab => _tabs[_entry.index];

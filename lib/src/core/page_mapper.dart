@@ -47,10 +47,23 @@ final class _PageMapper {
   }
 
   void _reconcile(List<NavEntry<Object?>> entries, Object? incomingRoute) {
+    final previous = _entries;
     _entries = entries;
     _incomingRoute = incomingRoute;
     try {
       _rebuildPages(reconcile: true);
+    } on Object {
+      // user code threw (a child's build, applyRoute, initState): this
+      // navigator stays at its last good entries and states. Children
+      // updated before the throw keep their new pages, so flatten again.
+      _entries = previous;
+      _incomingRoute = null;
+      try {
+        _rebuildPages(reconcile: false);
+      } on Object {
+        // the first error is the one to report
+      }
+      rethrow;
     } finally {
       _incomingRoute = null;
     }
@@ -81,6 +94,9 @@ final class _PageMapper {
         }
       }
     } finally {
+      // set only if the pass threw: what it queued is as stale as the pass
+      _queued = null;
+      _childChanged = false;
       _building = false;
       routing._passes--;
     }
@@ -91,6 +107,64 @@ final class _PageMapper {
     final pages = <FlatPage>[];
     final states = List<_AnyState?>.filled(_entries.length, null);
     final tabs = List<_TabsHost?>.filled(_entries.length, null);
+    // The old lists stay as they are until every entry is done, so a throw
+    // in user code (a child's build, applyRoute, initState) leaves this
+    // navigator with the states it had. `reused` are the old states and
+    // tabs taken over so far.
+    final reused = Set<Object>.identity();
+
+    try {
+      _visitEntries(pages, states, tabs, reused, reconcile: reconcile);
+    } on Object {
+      // what this pass created is not kept
+      for (final state in states.nonNulls) {
+        if (!reused.contains(state)) _discard(state);
+      }
+      for (final host in tabs.nonNulls) {
+        if (!reused.contains(host)) _guarded(host.dispose);
+      }
+      rethrow;
+    }
+
+    for (final unusedState in _statesByIndex.nonNulls) {
+      if (reused.contains(unusedState)) continue;
+      unusedState._pageMapper.pages.removeListener(_onChildPagesChanged);
+      unusedState.dispose();
+    }
+    _statesByIndex = states;
+    for (final unusedTabs in _tabsByIndex.nonNulls) {
+      if (!reused.contains(unusedTabs)) unusedTabs.dispose();
+    }
+    _tabsByIndex = tabs;
+
+    route = _topRoute(pages);
+    _pages.value = pages;
+  }
+
+  // disposes a state created in a pass that then threw
+  void _discard(_AnyState state) {
+    state._pageMapper.pages.removeListener(_onChildPagesChanged);
+    _guarded(state.dispose);
+  }
+
+  // cleanup after a throw: a second error must not hide the first
+  static void _guarded(VoidCallback cleanup) {
+    try {
+      cleanup();
+    } on Object catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(exception: error, stack: stack, library: 'fdr'),
+      );
+    }
+  }
+
+  void _visitEntries(
+    List<FlatPage> pages,
+    List<_AnyState?> states,
+    List<_TabsHost?> tabs,
+    Set<Object> reused, {
+    required bool reconcile,
+  }) {
     final incoming = _incomingRoute;
 
     for (final (index, entry) in _entries.indexed) {
@@ -123,6 +197,7 @@ final class _PageMapper {
                 ? incoming
                 : null,
             initial: null,
+            reused: reused,
             reconcile: reconcile,
           );
           states[index] = state;
@@ -146,6 +221,7 @@ final class _PageMapper {
             lift: entry._lift,
             incoming: addressed ? route : null,
             initial: route,
+            reused: reused,
             reconcile: reconcile,
           );
           states[index] = state;
@@ -168,30 +244,19 @@ final class _PageMapper {
           final _TabsHost host;
           if (existing != null) {
             host = existing;
-            _tabsByIndex[index] = null;
+            reused.add(host);
             if (reconcile) host.update(entry, incoming);
           } else {
             assert(reconcile, 'new tabs while only re-flattening');
-            host = _TabsHost(_owner, _onChildPagesChanged)
-              ..update(entry, incoming);
+            host = _TabsHost(_owner, _onChildPagesChanged);
+            // from here on the failed pass disposes it
+            tabs[index] = host;
+            host.update(entry, incoming);
           }
           tabs[index] = host;
           pages.add(host.page());
       }
     }
-
-    for (final unusedState in _statesByIndex.nonNulls) {
-      unusedState._pageMapper.pages.removeListener(_onChildPagesChanged);
-      unusedState.dispose();
-    }
-    _statesByIndex = states;
-    for (final unusedTabs in _tabsByIndex.nonNulls) {
-      unusedTabs.dispose();
-    }
-    _tabsByIndex = tabs;
-
-    route = _topRoute(pages);
-    _pages.value = pages;
   }
 
   FlatPage _navPage(NavPage<Object?> entry) {
@@ -232,29 +297,33 @@ final class _PageMapper {
     required Object? Function(Object? route)? lift,
     required Object? incoming,
     required Object? initial,
+    required Set<Object> reused,
     required bool reconcile,
   }) {
     // a keyed navigator keeps its state when it moves in the list, like a
     // keyed widget; others are matched by position
-    final at = navigator.key == null
-        ? index
-        : _statesByIndex.indexWhere((s) => s != null && s._isFor(navigator));
+    bool free(_AnyState? s) =>
+        s != null && !reused.contains(s) && s._isFor(navigator);
+    final at = navigator.key == null ? index : _statesByIndex.indexWhere(free);
     final existing = at >= 0 && at < _statesByIndex.length
         ? _statesByIndex[at]
         : null;
-    if (existing != null && existing._isFor(navigator)) {
-      // remove from the old list, so it does not get disposed below
-      _statesByIndex[at] = null;
+    if (existing != null && free(existing)) {
+      // taken over, so it does not get disposed after the pass
+      reused.add(existing);
       if (reconcile) {
         existing._pageMapper.pages.removeListener(_onChildPagesChanged);
-        final oldNavigator = existing._navigator;
-        existing
-          .._navigator = navigator
-          .._lift = lift ?? _identity
-          ..didUpdateNavigator(oldNavigator);
-        if (incoming != null) existing.applyRoute(incoming);
-        existing._updatePages(incoming);
-        existing._pageMapper.pages.addListener(_onChildPagesChanged);
+        try {
+          final oldNavigator = existing._navigator;
+          existing
+            .._navigator = navigator
+            .._lift = lift ?? _identity
+            ..didUpdateNavigator(oldNavigator);
+          if (incoming != null) existing.applyRoute(incoming);
+          existing._updatePages(incoming);
+        } finally {
+          existing._pageMapper.pages.addListener(_onChildPagesChanged);
+        }
       }
       return existing;
     }
@@ -262,11 +331,17 @@ final class _PageMapper {
     final state = navigator.createState()
       .._navigator = navigator
       .._parent = _owner
-      .._lift = lift ?? _identity
-      ..initState();
-    final first = incoming ?? initial;
-    if (first != null) state.applyRoute(first);
-    state._updatePages(first);
+      .._lift = lift ?? _identity;
+    try {
+      state.initState();
+      final first = incoming ?? initial;
+      if (first != null) state.applyRoute(first);
+      state._updatePages(first);
+    } on Object {
+      // not mounted: initState threw before it reached super.initState
+      if (state._mounted) _guarded(state.dispose);
+      rethrow;
+    }
     state._pageMapper.pages.addListener(_onChildPagesChanged);
     return state;
   }
