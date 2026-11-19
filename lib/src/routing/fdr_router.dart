@@ -197,6 +197,10 @@ class FdrRouterDelegate<R extends NavRoute>
     // a redirect (an open() during an update, e.g. in initState) is not a
     // route the app opened: the platform's initial route still applies
     if (!_started && !scope.redirecting) _openedBeforeStart = true;
+    // a redirect from applying another route (an open() in applyRoute):
+    // its replace is meant for that route, which was never reported, so
+    // the history action of the navigation in progress stands
+    final nested = _applying > 0;
     _applying++;
     try {
       _missing = null;
@@ -204,7 +208,9 @@ class FdrRouterDelegate<R extends NavRoute>
     } finally {
       _applying--;
     }
-    scope.requestHistory(history);
+    if (!nested || history != HistoryAction.replace) {
+      scope.requestHistory(history);
+    }
     notifyListeners();
   }
 

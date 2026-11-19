@@ -66,4 +66,52 @@ void main() {
     expect(router.currentUrl, '/c');
     expect((RootState.created, RootState.disposed), (1, 0));
   });
+
+  testWidgets('a redirect with replace keeps the entry the user came from', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    final router = FdrRouter<RR>(root: const Root(), fromUrl: RR.fromUrl);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
+    await tester.pump();
+    expect(router.provider.shadowHistory, ['/']);
+
+    // the replace is for /b, which was never reported; the open of /b
+    // itself adds an entry
+    router.open(const RB());
+    await tester.pumpAndSettle();
+    expect(router.currentUrl, '/c');
+    expect(router.provider.shadowHistory, ['/', '/c']);
+  });
+
+  testWidgets('an explicit history action of the open still wins', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    final router = FdrRouter<RR>(root: const Root(), fromUrl: RR.fromUrl);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
+    await tester.pump();
+
+    router.open(const RB(), history: HistoryAction.replace);
+    await tester.pumpAndSettle();
+    expect(router.currentUrl, '/c');
+    expect(router.provider.shadowHistory, ['/c']);
+  });
+
+  testWidgets('a redirect of a platform route replaces its entry', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    final router = FdrRouter<RR>(root: const Root(), fromUrl: RR.fromUrl);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
+    await tester.pump();
+
+    await router.provider.didPushRouteInformation(
+      RouteInformation(uri: Uri.parse('/b')),
+    );
+    await tester.pumpAndSettle();
+    expect(router.currentUrl, '/c');
+    // a typed URL starts a new shadow history, corrected in place
+    expect(router.provider.shadowHistory, ['/c']);
+  });
 }
