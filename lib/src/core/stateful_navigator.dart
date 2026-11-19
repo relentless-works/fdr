@@ -37,6 +37,9 @@ Object? _identity(Object? route) => route;
 /// [didUpdateNavigator] when the parent rebuilds with a new configuration.
 /// Finally [dispose], when the parent no longer builds it.
 ///
+/// A [setState] in [initState], [didUpdateNavigator] or [applyRoute] only
+/// runs its callback: the [build] that follows shows the change.
+///
 /// The URL follows from the routes of the pages [build] returns; between
 /// incoming routes, this state decides what is shown.
 abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
@@ -52,6 +55,10 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   Object? Function(Object? route) _lift = _identity;
 
   bool _mounted = false;
+
+  // while the parent runs initState or didUpdateNavigator and applyRoute:
+  // the build that follows shows what a setState in there changed
+  bool _configuring = false;
 
   /// Whether this state is in use: true from [initState] until [dispose].
   /// Check it before calling [setState] from an async callback.
@@ -101,6 +108,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
     assert(mounted, 'setState() called on $runtimeType after dispose()');
     fn();
     _routing.requestHistory(history);
+    if (_configuring) return;
     _rebuild();
   }
 

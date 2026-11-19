@@ -322,10 +322,13 @@ final class _PageMapper {
           existing
             .._navigator = navigator
             .._lift = lift ?? _identity
+            .._configuring = true
             ..didUpdateNavigator(oldNavigator);
           if (incoming != null) existing.applyRoute(incoming);
+          existing._configuring = false;
           existing._updatePages(incoming);
         } finally {
+          existing._configuring = false;
           existing._pageMapper.pages.addListener(_onChildPagesChanged);
         }
       }
@@ -337,9 +340,12 @@ final class _PageMapper {
       .._parent = _owner
       .._lift = lift ?? _identity;
     try {
-      state.initState();
+      state
+        .._configuring = true
+        ..initState();
       final first = incoming ?? initial;
       if (first != null) state.applyRoute(first);
+      state._configuring = false;
       state._updatePages(first);
     } on Object {
       // not mounted: initState threw before it reached super.initState
