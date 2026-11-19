@@ -23,14 +23,27 @@ void main() {
     toggle: find.byType(CupertinoSwitch),
   );
 
+  // TODO: Would be better to use `TestVariant` once https://github.com/eBay/flutter_glove_box/issues/179 is fixed
+  Future<void> Function(WidgetTester) onPlatform(
+    TargetPlatform platform,
+    Future<void> Function(WidgetTester) body,
+  ) => (tester) async {
+    debugDefaultTargetPlatformOverride = platform;
+    // reset also when the test fails, which would otherwise fail on it too
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    try {
+      await body(tester);
+    } finally {
+      // in the body too: Flutter before 3.50 checks the foundation debug
+      // variables at the end of the body, before the tear-downs run
+      debugDefaultTargetPlatformOverride = null;
+    }
+  };
+
   Future<void> pumpNavigator(
     WidgetTester tester,
     TargetPlatform platform,
   ) async {
-    // TODO: Would be better to use `TestVariant` once https://github.com/eBay/flutter_glove_box/issues/179 is fixed
-    debugDefaultTargetPlatformOverride = platform;
-    // reset also when the test fails, which would otherwise fail on it too
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     await tester.pumpWidgetBuilder(
       DeclarativeNavigator(navigator: _Navigator()),
       surfaceSize: size,
@@ -43,25 +56,28 @@ void main() {
 
   group('Dynamic back button', () {
     for (final (:platform, :backButton, :toggle) in [android, iOS]) {
-      testWidgets('${platform.name}: shown once the page has onPop, and pops '
-          'the page', (tester) async {
-        await pumpNavigator(tester, platform);
-        expect(backButton, findsNothing);
+      testWidgets(
+        '${platform.name}: shown once the page has onPop, and pops '
+        'the page',
+        onPlatform(platform, (tester) async {
+          await pumpNavigator(tester, platform);
+          expect(backButton, findsNothing);
 
-        await tester.tap(toggle);
-        await tester.pumpAndSettle();
-        expect(backButton, findsOneWidget);
+          await tester.tap(toggle);
+          await tester.pumpAndSettle();
+          expect(backButton, findsOneWidget);
 
-        await tester.tap(backButton);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        final page = ModalRoute.of(tester.element(find.byType(_SwitchPage)))!;
-        expect(page.animation!.status, AnimationStatus.reverse);
+          await tester.tap(backButton);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
+          final page = ModalRoute.of(tester.element(find.byType(_SwitchPage)))!;
+          expect(page.animation!.status, AnimationStatus.reverse);
 
-        await tester.pumpAndSettle();
-        expect(find.byType(_SwitchPage), findsNothing);
-        expect(find.text('Home'), findsOneWidget);
-      });
+          await tester.pumpAndSettle();
+          expect(find.byType(_SwitchPage), findsNothing);
+          expect(find.text('Home'), findsOneWidget);
+        }),
+      );
     }
 
     // The goldens were rendered on macOS, where CI runs: text renders
@@ -70,19 +86,27 @@ void main() {
     // than fdr (the test above checks that the page animates out).
     final skipGoldens = !Platform.isMacOS;
 
-    testGoldens('Android', (tester) async {
-      await pumpNavigator(tester, TargetPlatform.android);
-      await screenMatchesGolden(tester, 'dynamic_back_button/android/01_off');
-      await tester.tap(android.toggle);
-      await screenMatchesGolden(tester, 'dynamic_back_button/android/02_on');
-    }, skip: skipGoldens);
+    testGoldens(
+      'Android',
+      onPlatform(TargetPlatform.android, (tester) async {
+        await pumpNavigator(tester, TargetPlatform.android);
+        await screenMatchesGolden(tester, 'dynamic_back_button/android/01_off');
+        await tester.tap(android.toggle);
+        await screenMatchesGolden(tester, 'dynamic_back_button/android/02_on');
+      }),
+      skip: skipGoldens,
+    );
 
-    testGoldens('iOS', (tester) async {
-      await pumpNavigator(tester, TargetPlatform.iOS);
-      await screenMatchesGolden(tester, 'dynamic_back_button/ios/01_off');
-      await tester.tap(iOS.toggle);
-      await screenMatchesGolden(tester, 'dynamic_back_button/ios/02_on');
-    }, skip: skipGoldens);
+    testGoldens(
+      'iOS',
+      onPlatform(TargetPlatform.iOS, (tester) async {
+        await pumpNavigator(tester, TargetPlatform.iOS);
+        await screenMatchesGolden(tester, 'dynamic_back_button/ios/01_off');
+        await tester.tap(iOS.toggle);
+        await screenMatchesGolden(tester, 'dynamic_back_button/ios/02_on');
+      }),
+      skip: skipGoldens,
+    );
   });
 }
 
