@@ -68,7 +68,6 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   void initState() {
     _mounted = true;
     _pageMapper = _PageMapper(this);
-    FdrHotReload.listenable.addListener(_rebuild);
   }
 
   @mustCallSuper
@@ -184,7 +183,6 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
     }
     _unsubscribe.clear();
     _mounted = false;
-    FdrHotReload.listenable.removeListener(_rebuild);
     _pageMapper.dispose();
   }
 

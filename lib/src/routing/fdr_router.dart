@@ -233,7 +233,11 @@ class FdrRouterDelegate<R extends NavRoute>
 
   @override
   Widget build(BuildContext context) {
-    return _ReassembleHook(child: _host.navigator(key: navigatorKey));
+    return _ReassembleHook(
+      // hot reload: the update from the root rebuilds every navigator once
+      onReassemble: () => _host.update(_entries()),
+      child: _host.navigator(key: navigatorKey),
+    );
   }
 
   /// Android back: `maybePop` honours `Page.canPop` and any `PopScope`; on
@@ -253,8 +257,9 @@ class FdrRouterDelegate<R extends NavRoute>
 }
 
 class _ReassembleHook extends StatefulWidget {
-  const _ReassembleHook({required this.child});
+  const _ReassembleHook({required this.onReassemble, required this.child});
 
+  final VoidCallback onReassemble;
   final Widget child;
 
   @override
@@ -265,7 +270,7 @@ class _ReassembleHookState extends State<_ReassembleHook> {
   @override
   void reassemble() {
     super.reassemble();
-    FdrHotReload.trigger();
+    widget.onReassemble();
   }
 
   @override

@@ -12,7 +12,6 @@ import 'external_href.dart'
 
 part 'declarative_navigator.dart';
 part 'flat_page.dart';
-part 'hot_reload.dart';
 part 'nav_entry.dart';
 part 'nav_host.dart';
 part 'nav_scope.dart';
