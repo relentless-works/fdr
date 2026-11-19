@@ -156,8 +156,15 @@ class FdrRouterDelegate<R extends NavRoute>
   /// and its URL replaces the initial one. The same for the state the
   /// navigators start with, if there is no deep link and the app asked for
   /// it (`FdrRouter.keepStateWithoutDeepLink`).
+  ///
+  /// A Router mounted again for this delegate applies nothing: what the
+  /// provider holds is the last report, and the navigators' state is newer.
   @override
   Future<void> setInitialRoutePath(RouteSnapshot<R> configuration) {
+    if (_started) {
+      notifyListeners();
+      return SynchronousFuture(null);
+    }
     final keepState = _keepStateAtStart && currentUrl != null;
     if (!_openedBeforeStart && !keepState) {
       return setNewRoutePath(configuration);
@@ -833,7 +840,13 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   RouteInformation get value {
     final restored = _restoredInitialState;
     final current = super.value;
-    if (restored == null || current.state != null) return current;
+    final state = current.state;
+    // the last report is an entry of this provider: a Router reading it
+    // gets the non-URL state, as with an entry the browser delivers
+    if (state is Map && state['fdr'] == 1) {
+      return RouteInformation(uri: current.uri, state: state['h']);
+    }
+    if (restored == null || state != null) return current;
     return RouteInformation(uri: current.uri, state: restored);
   }
 

@@ -474,7 +474,11 @@ final class _PageMapper {
     };
     _pendingHistory = {
       for (final MapEntry(:key, :value) in entries.entries)
-        if (key is String && !existing.contains(key)) key: value,
+        // an index a child may get later; any other key is not of a tree
+        if (key is String &&
+            int.tryParse(key) != null &&
+            !existing.contains(key))
+          key: value,
     };
     for (final (index, state) in _statesByIndex.indexed) {
       if (state != null) _restoreState(state, entries['$index']);
