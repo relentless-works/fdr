@@ -146,7 +146,15 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
     _routing.open(_toRoot(route), history);
   }
 
-  void _rebuild() => _updatePages(null);
+  void _rebuild() {
+    // During the pass of another navigator, wait for it: an ancestor that
+    // rebuilt now could remove the navigator whose pass is running.
+    if (_routing._passes > 0 && !_pageMapper._building) {
+      _routing._defer(this);
+      return;
+    }
+    _updatePages(null);
+  }
 
   void _updatePages(Object? incomingRoute) {
     _pageMapper.updatePages(build().toList(), incomingRoute: incomingRoute);

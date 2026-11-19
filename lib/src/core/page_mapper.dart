@@ -82,6 +82,7 @@ final class _PageMapper {
     final routing = _owner._routing;
     routing._passes++;
     _building = true;
+    var done = false;
     try {
       pass();
       while (_queued != null || _childChanged) {
@@ -93,14 +94,17 @@ final class _PageMapper {
           _rebuildPages(reconcile: false);
         }
       }
+      done = true;
     } finally {
       // set only if the pass threw: what it queued is as stale as the pass
       _queued = null;
       _childChanged = false;
       _building = false;
       routing._passes--;
+      // the states that wait for this pass still show their changes
+      if (!done && routing._passes == 0) _guarded(routing._rebuildDeferred);
     }
-    if (routing._passes == 0) routing._openQueued();
+    if (routing._passes == 0) routing._settle();
   }
 
   void _rebuildPages({required bool reconcile}) {

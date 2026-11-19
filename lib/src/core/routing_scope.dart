@@ -44,6 +44,38 @@ final class RoutingScope {
     openRoot?.call(route, history);
   }
 
+  // States asked to rebuild while another navigator's pass was running.
+  // They rebuild once the outermost pass is done: rebuilding at once could
+  // remove the navigator whose pass it is.
+  final _deferred = <_AnyState>[];
+  bool _settling = false;
+
+  void _defer(_AnyState state) {
+    if (!_deferred.contains(state)) _deferred.add(state);
+  }
+
+  void _rebuildDeferred() {
+    // the passes of these rebuilds end here too
+    if (_settling) return;
+    _settling = true;
+    try {
+      while (_deferred.isNotEmpty) {
+        final state = _deferred.removeAt(0);
+        if (state._mounted) state._rebuild();
+      }
+    } finally {
+      _settling = false;
+    }
+  }
+
+  /// What waited for the outermost pass: deferred rebuilds, then a queued
+  /// [open], which applies to the settled tree.
+  void _settle() {
+    if (_settling) return;
+    _rebuildDeferred();
+    _openQueued();
+  }
+
   void _openQueued() {
     final queued = _queuedOpen;
     if (queued == null) return;
