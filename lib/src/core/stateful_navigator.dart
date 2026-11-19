@@ -106,6 +106,9 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
     HistoryAction history = HistoryAction.auto,
   }) {
     assert(mounted, 'setState() called on $runtimeType after dispose()');
+    // without asserts: nothing owns this state any more, so a rebuild
+    // would create child states that are never disposed
+    if (!_mounted) return;
     fn();
     _routing.requestHistory(history);
     if (_configuring) return;
@@ -151,6 +154,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   /// redirect), it runs once that update is done.
   void open(R route, {HistoryAction history = HistoryAction.auto}) {
     assert(mounted, 'open() called on $runtimeType after dispose()');
+    if (!_mounted) return;
     _routing.open(_toRoot(route), history);
   }
 
@@ -165,6 +169,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   }
 
   void _updatePages(Object? incomingRoute) {
+    if (!_mounted) return;
     _pageMapper.updatePages(build().toList(), incomingRoute: incomingRoute);
   }
 
