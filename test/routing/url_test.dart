@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:fdr/fdr.dart';
 import 'package:fdr/src/routing/fdr_router.dart';
 import 'package:flutter/widgets.dart';
@@ -15,6 +17,104 @@ void main() {
             .segments,
         ['orders', 42, -1, '007', '+42', '0x2A', '12345678901234567890', 'a b'],
       );
+      expect(_parse('/a/42/-1/007').rawSegments, ['a', '42', '-1', '007']);
+    });
+
+    test('parses, prints and parses back', () {
+      for (final (input, segments, query, printed) in [
+        (
+          '/a%2Fb/c%3Fd/e%23f/g%25h/i+j/k:l/%C3%A9',
+          ['a/b', 'c?d', 'e#f', 'g%h', 'i+j', 'k:l', 'é'],
+          <String, List<String>>{},
+          '/a%2Fb/c%3Fd/e%23f/g%25h/i%2Bj/k%3Al/%C3%A9',
+        ),
+        (
+          '/x?a%26b=c%3Dd&e=f+g&h=i%20j&k=%2B&l=%23',
+          ['x'],
+          {
+            'a&b': ['c=d'],
+            'e': ['f g'],
+            'h': ['i j'],
+            'k': ['+'],
+            'l': ['#'],
+          },
+          '/x?a%26b=c%3Dd&e=f+g&h=i+j&k=%2B&l=%23',
+        ),
+        // malformed escapes are kept as text
+        (
+          '/a%zz/b%/c%4?d=%',
+          ['a%zz', 'b%', 'c%4'],
+          {
+            'd': ['%'],
+          },
+          '/a%25zz/b%25/c%254?d=%25',
+        ),
+        ('', <Object>[], {}, '/'),
+        ('/', <Object>[], {}, '/'),
+        ('a/b', ['a', 'b'], {}, '/a/b'),
+        ('/a//b/', ['a', 'b'], {}, '/a/b'),
+        ('/-0/00/%2042/0/-1', ['-0', '00', ' 42', 0, -1], {}, null),
+        (
+          '/x?a',
+          ['x'],
+          {
+            'a': [''],
+          },
+          '/x?a=',
+        ),
+        (
+          '/x?=v',
+          ['x'],
+          {
+            '': ['v'],
+          },
+          null,
+        ),
+        (
+          '/x?a=b=c',
+          ['x'],
+          {
+            'a': ['b=c'],
+          },
+          '/x?a=b%3Dc',
+        ),
+        ('/x?&&', ['x'], {}, '/x'),
+      ]) {
+        final url = _parse(input);
+        expect(url.segments, segments, reason: input);
+        expect(url.query, query, reason: input);
+        expect('$url', printed ?? input, reason: input);
+        expect('${url.toUri()}', '$url', reason: input);
+        expect(_parse('$url'), url, reason: input);
+      }
+    });
+
+    test('random Urls print and parse back', () {
+      final random = Random(42);
+      final chars = 'ab1 /?#%&=+.;:@~\'"<>[]{}|\\^`éü😀\x00\t\n-_*!()\$,'.runes
+          .toList();
+      String text(int min, int max) => String.fromCharCodes([
+        for (var i = min + random.nextInt(max - min + 1); i > 0; i--)
+          chars[random.nextInt(chars.length)],
+      ]);
+      for (var i = 0; i < 2000; i++) {
+        final url = Url(
+          [
+            for (var n = random.nextInt(5); n > 0; n--)
+              text(1, 6).replaceAll(RegExp(r'^\.\.?$'), 'x'),
+          ],
+          query: {
+            for (var n = random.nextInt(4); n > 0; n--)
+              text(0, 5): [
+                for (var m = 1 + random.nextInt(2); m > 0; m--) text(0, 5),
+              ],
+          },
+        );
+        final printed = '$url';
+        expect(_parse(printed), url, reason: printed);
+        expect('${_parse(printed)}', printed);
+        expect('${url.toUri()}', printed);
+      }
     });
 
     test('integers beyond 2^53 - 1 stay strings on every platform', () {
@@ -109,6 +209,12 @@ void main() {
       // platform
       for (final segment in <Object>[42.5, true, TextDirection.ltr]) {
         expect(() => Url([segment]).toString(), throwsAssertionError);
+      }
+    });
+
+    test('an empty or dot segment is an error', () {
+      for (final segment in ['', '.', '..']) {
+        expect(() => Url(['a', segment]).path, throwsAssertionError);
       }
     });
 
@@ -370,5 +476,25 @@ void main() {
       expect('$missing', '/orders');
       expect(errors.single.exception, isA<StateError>());
     });
+  });
+
+  test('appPath keeps path and query, with the host of a custom scheme', () {
+    for (final (input, path) in [
+      ('https://shop.example/orders/7?x=1#f', '/orders/7?x=1'),
+      ('https://shop.example', '/'),
+      ('https://shop.example?x=1', '/?x=1'),
+      ('myapp://orders/42?x=1', '/orders/42?x=1'),
+      ('myapp:///orders/42', '/orders/42'),
+      ('myapp://', '/'),
+      ('/orders?x=1', '/orders?x=1'),
+      ('?x=1', '/?x=1'),
+      ('', '/'),
+    ]) {
+      expect(
+        '${FdrRouteInformationParser.appPath(Uri.parse(input))}',
+        path,
+        reason: input,
+      );
+    }
   });
 }
