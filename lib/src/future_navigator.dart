@@ -63,9 +63,13 @@ class FutureNavigator<T, R> extends StatefulNavigator<R> {
   final Widget Function(Object error, VoidCallback retry) error;
 
   /// Already available data (e.g. from the list the user tapped): shown at
-  /// once, without calling [load].
+  /// once, without calling [load]. It stays the app's: [onDispose] does not
+  /// release it.
   final T? initialData;
 
+  /// Releases a value [load] returned, once it is no longer shown: when a
+  /// reload replaces it, when this navigator is disposed, or at once for a
+  /// superseded load. Not called for [initialData].
   final void Function(T data)? onDispose;
 
   @override
@@ -78,6 +82,8 @@ class _FutureNavigatorState<T, R>
     extends StatefulNavigatorState<FutureNavigator<T, R>, R> {
   late T _data;
   bool _hasData = false;
+  // whether _data came from load: initialData is not released
+  bool _loaded = false;
   Object? _error;
   R? _route;
   int _generation = 0;
@@ -118,14 +124,14 @@ class _FutureNavigatorState<T, R>
       return;
     }
     final previous = _hasData ? _data : null;
+    final release = _loaded && !identical(previous, data);
     setState(() {
       _data = data;
       _hasData = true;
+      _loaded = true;
       _error = null;
     });
-    if (previous != null && !identical(previous, data)) {
-      navigator.onDispose?.call(previous);
-    }
+    if (release) navigator.onDispose?.call(previous as T);
   }
 
   void _retry() {
@@ -159,6 +165,6 @@ class _FutureNavigatorState<T, R>
     _generation++;
     // the children built from the data are disposed before it is released
     super.dispose();
-    if (_hasData) navigator.onDispose?.call(_data);
+    if (_loaded) navigator.onDispose?.call(_data);
   }
 }

@@ -178,6 +178,37 @@ void main() {
     expect(_url, '/orders/7');
   });
 
+  testWidgets('data the app already has is not released by onDispose', (
+    tester,
+  ) async {
+    await _pumpShop(tester, '/orders');
+    await tester.tap(find.byKey(const Key('open-loaded-7')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(_url, '/orders');
+    // the list it came from still owns it
+    expect(api.releasedOrders, isEmpty);
+  });
+
+  testWidgets('a reload of data the app had releases only loaded values', (
+    tester,
+  ) async {
+    await _pumpShop(tester, '/orders');
+    await tester.tap(find.byKey(const Key('open-loaded-7')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('refresh')));
+    await tester.pump();
+    api.completeOrder(7, version: 2);
+    await tester.pumpAndSettle();
+    expect(find.text('Order #7 v2'), findsOneWidget);
+    expect(api.releasedOrders, isEmpty);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(api.releasedOrders, ['Order #7 v2']);
+  });
+
   testWidgets('a reload hands new data to the same child state', (
     tester,
   ) async {
