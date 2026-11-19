@@ -40,7 +40,9 @@ typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
 /// What is loaded is identified by [key]: a different key is a different
 /// navigator, so its state starts over and a load still in flight for the
 /// old key is ignored. The loaded value lives as long as this navigator's
-/// state; [onDispose] releases it (also a value from a superseded load).
+/// state; [onDispose] releases it (also a value from a superseded load),
+/// once it is no longer shown: a reload that returns the instance on screen
+/// does not release it.
 ///
 /// Put it inside a [NestedNavigator] with an `onPop`, as above, so its
 /// loading and error pages can be left with back.
@@ -107,8 +109,12 @@ class _FutureNavigatorState<T, R>
       setState(() => _error = error);
       return;
     }
+    // a load may return the value already shown (a cached view model):
+    // that one is released when it is no longer shown, once
     if (!mounted || generation != _generation) {
-      navigator.onDispose?.call(data);
+      if (!_hasData || !identical(data, _data)) {
+        navigator.onDispose?.call(data);
+      }
       return;
     }
     final previous = _hasData ? _data : null;
@@ -117,7 +123,9 @@ class _FutureNavigatorState<T, R>
       _hasData = true;
       _error = null;
     });
-    if (previous != null) navigator.onDispose?.call(previous);
+    if (previous != null && !identical(previous, data)) {
+      navigator.onDispose?.call(previous);
+    }
   }
 
   void _retry() {
