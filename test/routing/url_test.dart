@@ -154,6 +154,52 @@ void main() {
       );
     });
 
+    test('Urls that print the same are equal', () {
+      void same(Url a, Url b) {
+        expect('$a', '$b');
+        expect(a, b);
+        expect(a.hashCode, b.hashCode);
+      }
+
+      // a string id that looks like a number parses back as an int
+      same(_parse('${const Url(['42'])}'), const Url(['42']));
+      same(const Url(['42']), const Url([42]));
+      // a name without values prints nothing
+      same(
+        const Url(
+          ['x'],
+          query: {
+            'a': [],
+            'b': ['1'],
+          },
+        ),
+        const Url(
+          ['x'],
+          query: {
+            'b': ['1'],
+            'c': [],
+          },
+        ),
+      );
+      expect(
+        const Url(
+          [],
+          query: {
+            'a': ['1', '2'],
+          },
+        ),
+        isNot(
+          const Url(
+            [],
+            query: {
+              'a': ['2', '1'],
+            },
+          ),
+        ),
+      );
+      expect(const Url(['x']), isNot(const Url(['x', 'y'])));
+    });
+
     test('two levels printing one query parameter differently is an error', () {
       expect(
         () =>

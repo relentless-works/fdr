@@ -191,30 +191,27 @@ final class Url {
     return pairs.isEmpty ? path : '$path?${pairs.join('&')}';
   }
 
+  /// Urls are equal when they print the same path and the same values per
+  /// query name: `Url(['42'])` equals `Url([42])`, and a name without values
+  /// equals no name. The order of the names does not matter.
   @override
   bool operator ==(Object other) =>
       other is Url &&
-      listEquals(other.segments, segments) &&
-      _queryEquals(other.query, query);
+      listEquals(other.rawSegments, rawSegments) &&
+      _queryIn(other.query, query) &&
+      _queryIn(query, other.query);
 
   @override
   int get hashCode => Object.hash(
-    Object.hashAll(segments),
+    Object.hashAll(rawSegments),
     Object.hashAllUnordered([
       for (final MapEntry(:key, :value) in query.entries)
-        Object.hash(key, Object.hashAll(value)),
+        if (value.isNotEmpty) Object.hash(key, Object.hashAll(value)),
     ]),
   );
 
-  static bool _queryEquals(
+  static bool _queryIn(
     Map<String, List<String>> a,
     Map<String, List<String>> b,
-  ) {
-    if (a.length != b.length) return false;
-    for (final MapEntry(:key, :value) in a.entries) {
-      final other = b[key];
-      if (other == null || !listEquals(other, value)) return false;
-    }
-    return true;
-  }
+  ) => a.entries.every((e) => listEquals(e.value, b[e.key] ?? const []));
 }
