@@ -384,7 +384,7 @@ final class _PageMapper {
     final tree = <String, Object?>{};
     for (final (index, state) in _statesByIndex.indexed) {
       if (state == null) continue;
-      final own = state.historyState;
+      final own = _json(state);
       final children = state._pageMapper.historyState;
       if (own == null && children == null) continue;
       tree['$index'] = <String, Object?>{
@@ -399,6 +399,47 @@ final class _PageMapper {
     }
     return tree.isEmpty ? null : tree;
   }
+
+  // The state's historyState, if it is JSON. Anything else would fail
+  // where the entry is sent to the platform, for every report and without
+  // a hint at the navigator: it is reported here, once per state, and the
+  // entry is written without it.
+  static Object? _json(_AnyState state) {
+    final own = state.historyState;
+    if (_isJson(own)) return own;
+    if (_notJson[state] != true) {
+      _notJson[state] = true;
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: FlutterError.fromParts([
+            ErrorSummary(
+              'The historyState of ${state.runtimeType} is not JSON: $own',
+            ),
+            ErrorHint(
+              'It is stored in the browser history entry and the restoration '
+              'bucket, which take null, bool, finite numbers, String, and '
+              'List and Map (with String keys) of these. The entry is '
+              'written without it.',
+            ),
+          ]),
+          library: 'fdr',
+        ),
+      );
+    }
+    return null;
+  }
+
+  static final _notJson = Expando<bool>();
+
+  static bool _isJson(Object? value) => switch (value) {
+    null || bool() || String() => true,
+    num() => value.isFinite,
+    List<Object?>() => value.every(_isJson),
+    Map<Object?, Object?>() => value.entries.every(
+      (entry) => entry.key is String && _isJson(entry.value),
+    ),
+    _ => false,
+  };
 
   /// Restores a tree of [historyState]. A state the tree holds nothing for
   /// had no history state then: if it has some now, it is restored with
