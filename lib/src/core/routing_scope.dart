@@ -91,6 +91,10 @@ final class RoutingScope {
   final _redirects = <Object?>[];
   static const _maxRedirects = 5;
 
+  /// Whether the open being run through [openRoot] was queued during an
+  /// update: a redirect, not a navigation of its own.
+  bool get redirecting => _redirects.isNotEmpty;
+
   void _openQueued() {
     final queued = _queuedOpen;
     if (queued == null) return;

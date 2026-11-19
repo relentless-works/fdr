@@ -28,8 +28,10 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator>
       ..openRoot = ((route, _) {
         _host.update([widget.navigator], incomingRoute: route);
       });
-    _host = NavHost<Never>(scope, description: 'DeclarativeNavigator')
-      ..update([widget.navigator]);
+    // assigned before the first update: an open() in a navigator's
+    // initState or build runs at its end and needs _host
+    _host = NavHost<Never>(scope, description: 'DeclarativeNavigator');
+    _host.update([widget.navigator]);
   }
 
   @override

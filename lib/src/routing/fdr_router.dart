@@ -35,7 +35,10 @@ class FdrRouterDelegate<R extends NavRoute>
       ..stackChange = _stackChange
       ..openRoot = ((route, history) => _open(route as R, history))
       ..hrefOf = ((route) => (route as R).toUrl().toString());
-    _host = NavHost<R>(scope, description: 'the router ($R)')
+    // assigned before the first update: an open() in a navigator's
+    // initState or build runs at its end and needs _host
+    _host = NavHost<R>(scope, description: 'the router ($R)');
+    _host
       ..pages.addListener(_onPagesChanged)
       ..update(_entries());
     _reportedStack = _routedStack();
@@ -191,7 +194,9 @@ class FdrRouterDelegate<R extends NavRoute>
   }
 
   void _open(R route, HistoryAction history) {
-    if (!_started) _openedBeforeStart = true;
+    // a redirect (an open() during an update, e.g. in initState) is not a
+    // route the app opened: the platform's initial route still applies
+    if (!_started && !scope.redirecting) _openedBeforeStart = true;
     _applying++;
     try {
       _missing = null;
