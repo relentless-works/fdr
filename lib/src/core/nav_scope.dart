@@ -49,10 +49,18 @@ final class _HostTarget<R> implements _LinkTarget {
 }
 
 /// Tells the widgets of a page which navigator built it, for [RouteLink].
-class _NavScope extends InheritedWidget {
+///
+/// A theme, so that the sheets, dialogs and menus a page opens (which
+/// capture the themes of the context they are opened from) resolve their
+/// links like the page does, not at the navigator that owns the Navigator.
+class _NavScope extends InheritedTheme {
   const _NavScope({required this.target, required super.child});
 
   final _LinkTarget target;
+
+  @override
+  Widget wrap(BuildContext context, Widget child) =>
+      _NavScope(target: target, child: child);
 
   // rebuilt only when the owning navigator rebuilds, which is when the
   // parents' `at` (and with it a link's URL) can change

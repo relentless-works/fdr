@@ -46,8 +46,9 @@ final class NavHost<R> {
   List<KeyedPage> keyed() => keyPages(_mapper.pages.value, routeKey);
 
   Widget navigator({Key? key}) {
-    // the scope also covers routes pushed outside the pages, like
-    // showModalBottomSheet or menus: their links resolve at the root
+    // the scope also covers routes pushed outside the pages that do not
+    // capture the themes of a page (see _NavScope): their links resolve at
+    // the root
     return _NavScope(
       target: _target,
       child: ValueListenableBuilder(
