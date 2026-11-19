@@ -85,11 +85,51 @@ final class RoutingScope {
     _queuedOpen = null;
   }
 
+  // The routes of queued opens in progress: each one runs at the end of the
+  // update of the one before, so routes that redirect to each other would
+  // go on until the stack overflows.
+  final _redirects = <Object?>[];
+  static const _maxRedirects = 5;
+
   void _openQueued() {
     final queued = _queuedOpen;
     if (queued == null) return;
     _queuedOpen = null;
-    openRoot?.call(queued.$1, queued.$2);
+    if (_redirects.length == _maxRedirects) {
+      _reportRedirectLoop([..._redirects, queued.$1]);
+      return;
+    }
+    _redirects.add(queued.$1);
+    try {
+      openRoot?.call(queued.$1, queued.$2);
+    } finally {
+      _redirects.removeLast();
+    }
+  }
+
+  // reported, not thrown: the opens in progress still finish, so the app
+  // stays on the last route applied and the router reports its URL
+  void _reportRedirectLoop(List<Object?> routes) {
+    final chain = routes.map((route) => hrefOf?.call(route) ?? '$route');
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: FlutterError.fromParts([
+          ErrorSummary(
+            'open() was called during an update ${routes.length} times in a '
+            'row: ${chain.join(' -> ')}',
+          ),
+          ErrorDescription(
+            'Each of these routes was opened while the one before was '
+            'applied (in applyRoute, initState or build). The last one was '
+            'not opened.',
+          ),
+          ErrorHint(
+            'Check the redirects for routes that lead back to each other.',
+          ),
+        ]),
+        library: 'fdr',
+      ),
+    );
   }
 
   /// Set by the router delegate: the action implied by how the routed page
