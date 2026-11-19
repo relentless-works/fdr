@@ -43,13 +43,14 @@ Future<void> linkTo(WidgetTester tester, String location) async {
 
 Future<FdrRouter<RR>> start(
   WidgetTester tester, {
+  String initial = '/',
   Uri Function(Uri uri)? rewriteUri,
 }) async {
   final router = FdrRouter<RR>(
     root: const Root(),
     fromUrl: RR.fromUrl,
     notFound: (url) => scaffold('missing $url'),
-    initialRouteInformation: RouteInformation(uri: Uri.parse('/')),
+    initialRouteInformation: RouteInformation(uri: Uri.parse(initial)),
     rewriteUri: rewriteUri,
   );
   addTearDown(router.dispose);
@@ -71,6 +72,23 @@ void main() {
     // a fragment that is no route stays a fragment
     await linkTo(tester, 'https://shop.example/b#top');
     expect(router.currentUrl, '/b');
+  });
+
+  testWidgets('a path that starts with two slashes keeps its first segment', (
+    tester,
+  ) async {
+    // read as a host by Uri.parse; the web engine sends it for a typed
+    // https://shop.example//b or #//b
+    final router = await start(tester, initial: '//b');
+    expect(router.currentUrl, '/b');
+    await linkTo(tester, '//c');
+    expect(router.currentUrl, '/c');
+    await linkTo(tester, 'https://shop.example/#//b');
+    expect(router.currentUrl, '/b');
+    // a protocol-relative link to another host is no page of the app
+    await linkTo(tester, '//other.example/c');
+    expect(router.currentUrl, '/other.example/c');
+    expect(find.text('missing /other.example/c'), findsOneWidget);
   });
 
   testWidgets('rewriteUri maps links before they are routed', (tester) async {

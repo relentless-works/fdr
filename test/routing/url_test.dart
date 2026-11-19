@@ -416,6 +416,19 @@ void main() {
       expect(route('https://shop.example/#top'), '/');
       expect(route('https://shop.example/app#/orders'), '/app');
     });
+
+    test('a host without a scheme is the first segment', () {
+      // what a browser sends for a typed https://shop.example//orders/42,
+      // or for #//orders/42 with the hash URL strategy
+      expect(route('//orders/42'), '/orders/42');
+      expect(route('//orders/42?x=1'), '/orders/42?x=1');
+      expect(route('https://shop.example/#//orders/42'), '/orders/42');
+      expect(route('//orders'), '/orders');
+      expect(route('//'), '/');
+      expect(route('///orders/42'), '/orders/42');
+      // not the host of an http(s) link
+      expect(route('https://orders/42'), '/42');
+    });
   });
 
   group('URLs that do not parse completely', () {

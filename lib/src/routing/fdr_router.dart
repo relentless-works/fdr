@@ -344,7 +344,9 @@ class FdrRouteInformationParser<R extends NavRoute>
 
   /// Path and query of an incoming URI. OS deep links carry scheme and host;
   /// for a custom scheme (`myapp://orders/42`) the host is the first segment
-  /// (lowercased, like every host). A web link whose route is in the
+  /// (lowercased, like every host), and so is the host of a URI without a
+  /// scheme: a path that starts with two slashes (`//orders/42`), which a
+  /// browser sends as typed. A web link whose route is in the
   /// fragment (hash URL strategy, `https://shop.example/#/orders/42`) is
   /// routed by the fragment.
   static Uri appPath(Uri uri) {
@@ -353,9 +355,8 @@ class FdrRouteInformationParser<R extends NavRoute>
         uri.fragment.startsWith('/')) {
       return appPath(Uri.parse(uri.fragment));
     }
-    final custom =
-        uri.hasScheme && uri.scheme != 'http' && uri.scheme != 'https';
-    final path = custom && uri.host.isNotEmpty
+    final web = uri.scheme == 'http' || uri.scheme == 'https';
+    final path = !web && uri.host.isNotEmpty
         ? '/${uri.host}${uri.path}'
         : uri.path;
     return Uri(
@@ -874,8 +875,8 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
 /// [rewriteUri] rewrites each incoming URI (an OS deep link, a web path)
 /// before it is routed, e.g. to drop a host that is not part of the route
 /// (`myapp://shop.example/orders/42`) or the path prefix of universal links.
-/// What it returns is then reduced to path and query: a URI without scheme
-/// as it is, an OS deep link by the rules of the default (scheme and host).
+/// What it returns is then reduced to path and query by the rules of the
+/// default: a host is the first segment unless the scheme is http(s).
 class FdrRouter<R extends NavRoute> {
   FdrRouter({
     required StatefulNavigator<R> root,
