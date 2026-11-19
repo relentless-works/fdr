@@ -5,7 +5,8 @@ typedef KeyedPage = (LocalKey key, FlatPage page);
 /// Keys a flattened page list so the Navigator pairs old and new pages by
 /// identity instead of position: explicit keys win; a routed page is keyed by
 /// [routeKey] of its route (`#n` for repeats); a page without a route by the
-/// key of the routed page below it plus its offset.
+/// key of the routed page below it plus its offset (`+n`). A printed path
+/// has neither `#` nor `+`, so these keys cannot be the key of a route.
 List<KeyedPage> keyPages(
   List<FlatPage> pages,
   String? Function(Object route) routeKey,
@@ -32,7 +33,7 @@ List<KeyedPage> keyPages(
       derived = below;
     } else {
       offset++;
-      derived = '$below~$offset';
+      derived = '$below+$offset';
     }
     result.add((page.key ?? ValueKey('fdr:$derived'), page));
   }
