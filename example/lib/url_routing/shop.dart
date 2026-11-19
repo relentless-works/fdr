@@ -325,7 +325,11 @@ class _OrdersNavigatorState
 
   @override
   void restoreHistoryState(Object? state) {
-    if (state case {'scroll': final num offset}) scroll = offset.toDouble();
+    // null: the entry was written while scroll was 0
+    scroll = switch (state) {
+      {'scroll': final num offset} => offset.toDouble(),
+      _ => 0,
+    };
   }
 
   @override

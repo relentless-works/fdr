@@ -431,6 +431,23 @@ void main() {
     expect(url(router), '/orders');
   });
 
+  testWidgets('C7 an entry written without history state resets it', (
+    tester,
+  ) async {
+    final router = await pumpApp(tester, initialUrl: '/orders');
+    await tester.tap(find.byKey(const Key('open-42')));
+    await tester.pumpAndSettle();
+    // the offset changes while the order is on top
+    final orders = OrdersNavigatorState.latest!;
+    orders.setState(() => orders.scroll = 120);
+    await tester.pumpAndSettle();
+
+    // back to the list's entry, written while the offset was 0
+    await browserNavigatesTo(tester, '/orders', state: envelope(1));
+    expect(url(router), '/orders');
+    expect(find.text('scroll 0.0'), findsOneWidget);
+  });
+
   testWidgets('C11 process-death restoration rebuilds the stack', (
     tester,
   ) async {

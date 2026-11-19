@@ -368,7 +368,9 @@ class OrdersNavigatorState
 
   @override
   void restoreHistoryState(Object? state) {
-    if (state is Map) scroll = (state['scroll']! as num).toDouble();
+    // null: the entry was written while scroll was 0; another shape throws
+    // (history_state_unreadable_test)
+    scroll = state is Map ? (state['scroll']! as num).toDouble() : 0;
   }
 
   @override
