@@ -13,7 +13,13 @@ final class _TabsHost {
   final _tabs = <_PageMapper>[];
   late TabsPage<Object?> _entry;
 
-  void update(TabsPage<Object?> entry, Object? incomingRoute) {
+  /// [history] is restored into the tabs this creates: history state that
+  /// was restored before they existed (see [restoreHistoryState]).
+  void update(
+    TabsPage<Object?> entry,
+    Object? incomingRoute, [
+    Object? history,
+  ]) {
     assert(
       entry.index >= 0 && entry.index < entry.tabs.length,
       'tab index ${entry.index} out of range',
@@ -23,7 +29,8 @@ final class _TabsHost {
     try {
       for (final (i, tab) in entry.tabs.indexed) {
         if (i == _tabs.length) {
-          _tabs.add(_PageMapper(_owner));
+          // restored before its navigator is created, which takes it then
+          _tabs.add(_PageMapper(_owner)..restoreHistoryState(_tab(history, i)));
         } else {
           _tabs[i].pages.removeListener(_onTabChanged);
         }
@@ -91,11 +98,12 @@ final class _TabsHost {
   // a tab the state holds nothing for had no history state then
   void restoreHistoryState(Object? state) {
     for (final (i, tab) in _tabs.indexed) {
-      tab.restoreHistoryState(
-        state is List && i < state.length ? state[i] : null,
-      );
+      tab.restoreHistoryState(_tab(state, i));
     }
   }
+
+  static Object? _tab(Object? state, int i) =>
+      state is List && i < state.length ? state[i] : null;
 
   void dispose() {
     for (final tab in _tabs) {

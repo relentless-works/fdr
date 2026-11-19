@@ -24,6 +24,13 @@ final class _PageMapper {
   var _entries = <NavEntry<Object?>>[];
   Object? _incomingRoute;
 
+  // What a restored history state tree holds for children that did not
+  // exist then (below a FutureNavigator that was loading): restored into
+  // the state or tabs created at that index later, and kept in
+  // [historyState] until then, so the entry is not overwritten without it.
+  // Dropped when an incoming route reaches the owning navigator.
+  var _pendingHistory = <String, Object?>{};
+
   // during a pass: a child's pages changed, or this navigator was asked to
   // update again (a child's initState or applyRoute changed an ancestor);
   // both are handled once the pass is done instead of re-entering it
@@ -261,7 +268,8 @@ final class _PageMapper {
             host = _TabsHost(_owner, _onChildPagesChanged);
             // from here on the failed pass disposes it
             tabs[index] = host;
-            host.update(entry, incoming);
+            final pending = _pendingHistory.remove('$index');
+            host.update(entry, incoming, pending is Map ? pending['b'] : null);
           }
           tabs[index] = host;
           pages.add(host.page());
@@ -332,7 +340,12 @@ final class _PageMapper {
             .._lift = lift ?? _identity
             .._configuring = true
             ..didUpdateNavigator(oldNavigator);
-          if (incoming != null) existing.applyRoute(incoming);
+          if (incoming != null) {
+            existing.applyRoute(incoming);
+            // the route decides what it shows now: what a restored entry
+            // held for children that had not appeared is not for those
+            existing._pageMapper._pendingHistory = {};
+          }
           existing._configuring = false;
           existing._updatePages(incoming);
         } finally {
@@ -354,6 +367,12 @@ final class _PageMapper {
         ..initState();
       final first = incoming ?? initial;
       if (first != null) state.applyRoute(first);
+      // restored before it existed: it builds with that state from the start
+      if (_pendingHistory.remove('$index')
+          case final Map<Object?, Object?> entry
+          when entry['t'] == state.restorationType) {
+        _restoreState(state, entry);
+      }
       state._configuring = false;
       state._updatePages(first);
     } on Object {
@@ -396,6 +415,9 @@ final class _PageMapper {
     for (final (index, host) in _tabsByIndex.indexed) {
       final branches = host?.historyState;
       if (branches != null) tree['$index'] = {'b': branches};
+    }
+    for (final MapEntry(:key, :value) in _pendingHistory.entries) {
+      tree.putIfAbsent(key, () => value);
     }
     return tree.isEmpty ? null : tree;
   }
@@ -443,43 +465,58 @@ final class _PageMapper {
 
   /// Restores a tree of [historyState]. A state the tree holds nothing for
   /// had no history state then: if it has some now, it is restored with
-  /// null.
+  /// null. What it holds for a child that does not exist yet is restored
+  /// when that child is created.
   void restoreHistoryState(Object? tree) {
     final entries = tree is Map ? tree : const <Object?, Object?>{};
+    final existing = {
+      for (final (index, state) in _statesByIndex.indexed)
+        if (state != null) '$index',
+      for (final (index, host) in _tabsByIndex.indexed)
+        if (host != null) '$index',
+    };
+    _pendingHistory = {
+      for (final MapEntry(:key, :value) in entries.entries)
+        if (key is String && !existing.contains(key)) key: value,
+    };
     for (final (index, state) in _statesByIndex.indexed) {
-      if (state == null) continue;
-      final entry = switch (entries['$index']) {
-        final Map<Object?, Object?> entry
-            when entry['t'] == state.restorationType =>
-          entry,
-        _ => const <Object?, Object?>{},
-      };
-      final own = entry['s'];
-      if (own != null || state.historyState != null) {
-        // the entry may be one an earlier build of the app wrote, with
-        // another shape: this state keeps what it has, the others are
-        // still restored
-        try {
-          state.restoreHistoryState(own);
-        } on Object catch (error, stack) {
-          FlutterError.reportError(
-            FlutterErrorDetails(
-              exception: error,
-              stack: stack,
-              library: 'fdr',
-              context: ErrorDescription(
-                'while restoring the history state of ${state.runtimeType}',
-              ),
-            ),
-          );
-        }
-      }
-      state._pageMapper.restoreHistoryState(entry['c']);
+      if (state != null) _restoreState(state, entries['$index']);
     }
     for (final (index, host) in _tabsByIndex.indexed) {
       final entry = entries['$index'];
       host?.restoreHistoryState(entry is Map ? entry['b'] : null);
     }
+  }
+
+  // restores a state and its children from its entry of the tree
+  static void _restoreState(_AnyState state, Object? tree) {
+    final entry = switch (tree) {
+      final Map<Object?, Object?> entry
+          when entry['t'] == state.restorationType =>
+        entry,
+      _ => const <Object?, Object?>{},
+    };
+    final own = entry['s'];
+    if (own != null || state.historyState != null) {
+      // the entry may be one an earlier build of the app wrote, with
+      // another shape: this state keeps what it has, the others are
+      // still restored
+      try {
+        state.restoreHistoryState(own);
+      } on Object catch (error, stack) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'fdr',
+            context: ErrorDescription(
+              'while restoring the history state of ${state.runtimeType}',
+            ),
+          ),
+        );
+      }
+    }
+    state._pageMapper.restoreHistoryState(entry['c']);
   }
 
   void dispose() {
