@@ -1,0 +1,17 @@
+# `pub publish` reads this file instead of .gitignore in this directory, so
+# the rules of .gitignore are repeated here (dot-files are never published).
+*.class
+*.log
+*.pyc
+*.swp
+migrate_working_dir/
+*.iml
+*.ipr
+*.iws
+**/doc/api/
+build/
+
+# Only for developing this package
+/file_comparator_with_threshold.dart
+/test/
+/tool/
