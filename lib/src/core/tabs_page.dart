@@ -60,7 +60,9 @@ final class _TabsHost {
     final view = _NavScope(
       target: _owner,
       child: _TabsView(
-        host: this,
+        // a copy: a removed page keeps showing its tabs while it animates
+        // out, also after they are disposed
+        tabs: List.of(_tabs),
         builder: _entry.builder,
         active: _entry.index,
       ),
@@ -104,19 +106,19 @@ final class _TabsHost {
 
 class _TabsView extends StatelessWidget {
   const _TabsView({
-    required this.host,
+    required this.tabs,
     required this.builder,
     required this.active,
   });
 
-  final _TabsHost host;
+  final List<_PageMapper> tabs;
   final TabsBuilder builder;
   final int active;
 
   @override
   Widget build(BuildContext context) {
     return builder(context, [
-      for (final (i, tab) in host._tabs.indexed)
+      for (final (i, tab) in tabs.indexed)
         _TabNavigator(key: ObjectKey(tab), mapper: tab, active: i == active),
     ]);
   }
