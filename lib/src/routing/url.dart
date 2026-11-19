@@ -152,9 +152,12 @@ final class Url {
   /// All values of query parameter [name].
   List<String> all(String name) => query[name] ?? const [];
 
-  /// The part after the first [count] segments, for the next level.
-  Url rest(int count) =>
-      Url(List.unmodifiable(segments.sublist(count)), query: query);
+  /// The part after the first [count] segments, for the next level. A URL
+  /// with fewer segments throws [NotFound], like any other unknown URL.
+  Url rest(int count) {
+    if (count > segments.length) throw NotFound(this);
+    return Url(List.unmodifiable(segments.sublist(count)), query: query);
+  }
 
   /// This URL followed by [next]'s segments, with both queries. A query name
   /// without values prints nothing, so it neither collides nor wins.

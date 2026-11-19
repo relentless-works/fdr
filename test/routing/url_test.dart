@@ -136,6 +136,16 @@ void main() {
       expect(const Url([]).toString(), '/');
     });
 
+    test('rest past the end is not found', () {
+      final url = _parse('/a/b?q=1');
+      expect(url.rest(2).segments, isEmpty);
+      expect(url.rest(2)['q'], '1');
+      expect(
+        () => url.rest(3),
+        throwsA(isA<NotFound>().having((e) => e.url, 'url', url)),
+      );
+    });
+
     test('a parsed Url, like a const one, cannot be changed', () {
       final url = _parse('/a/b?x=1');
       final rest = url.rest(1);
@@ -328,6 +338,22 @@ void main() {
       );
       expect('${snapshot.missing}', '/x');
       expect('${parser.restoreRouteInformation(snapshot)!.uri}', '/x');
+    });
+
+    test('a level that reads past the end of the URL is not a bug', () {
+      final errors = <FlutterErrorDetails>[];
+      final previous = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = previous);
+
+      // skips a prefix without a list pattern
+      final skipping = FdrRouteInformationParser<AppRoute>(
+        fromUrl: (url) => AppRoute.fromUrl(url.rest(1)),
+      );
+      final (route, missing) = skipping.resolve(_parse('/'));
+      expect(route, isNull);
+      expect('$missing', '/');
+      expect(errors, isEmpty);
     });
 
     test('a fromUrl that fails otherwise is reported as a bug', () {
