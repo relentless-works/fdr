@@ -50,6 +50,11 @@ class RootState extends StatefulNavigatorState<Root, RR> {
 }
 
 void main() {
+  tearDown(
+    () => TestWidgetsFlutterBinding.instance.platformDispatcher
+        .clearDefaultRouteNameTestValue(),
+  );
+
   testWidgets('open() from applyRoute (a redirect) lands on the target', (
     tester,
   ) async {

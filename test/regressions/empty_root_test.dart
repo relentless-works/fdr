@@ -92,6 +92,9 @@ void main() {
     tester,
   ) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
     final router = FdrRouter<RR>(root: const _Empty<RR>(), fromUrl: RR.fromUrl);
     final text = await errorsOf(
       () => tester.pumpWidget(MaterialApp.router(routerConfig: router.config)),

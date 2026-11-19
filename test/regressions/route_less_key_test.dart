@@ -61,6 +61,9 @@ void main() {
   ) async {
     pops.clear();
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
     final router = FdrRouter<SegRoute>(
       root: const Nav(),
       fromUrl: SegRoute.fromUrl,

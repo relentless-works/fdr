@@ -140,6 +140,9 @@ void main() {
 
   testWidgets('router: hot reload builds each navigator once', (tester) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
     final router = FdrRouter<RR>(root: const _Root<RR>(), fromUrl: RR.fromUrl);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pumpAndSettle();

@@ -87,7 +87,10 @@ class ChildState extends StatefulNavigatorState<Child, CR> {
   void applyRoute(CR route) => x = route is CX;
   @override
   List<NavEntry<CR>> build() => [
-    const NavPage(route: C0(), child: Scaffold(body: Openers())),
+    const NavPage(
+      route: C0(),
+      child: Scaffold(body: Openers()),
+    ),
     if (x)
       NavPage(
         route: const CX(),
@@ -112,7 +115,10 @@ class Openers extends StatelessWidget {
           context: context,
           builder: (_) => Column(
             mainAxisSize: MainAxisSize.min,
-            children: [link('sheet go'), link('sheet root', const HomeAt(CX()))],
+            children: [
+              link('sheet go'),
+              link('sheet root', const HomeAt(CX())),
+            ],
           ),
         ),
         child: const Text('sheet'),
@@ -136,6 +142,7 @@ Future<FdrRouter<HomeAt>> start(
   bool tabs = false,
 }) async {
   tester.binding.platformDispatcher.defaultRouteNameTestValue = url;
+  addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
   final router = FdrRouter<HomeAt>(
     root: Root(tabs: tabs),
     fromUrl: HomeAt.fromUrl,

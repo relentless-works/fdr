@@ -122,6 +122,7 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
+
   testWidgets('with asserts, setState and open after dispose say so', (
     tester,
   ) async {

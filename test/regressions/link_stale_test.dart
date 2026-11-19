@@ -122,6 +122,9 @@ void main() {
     tester,
   ) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/?f=a';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
     final router = FdrRouter<HomeAt>(
       root: const Root(),
       fromUrl: HomeAt.fromUrl,

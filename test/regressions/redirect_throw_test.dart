@@ -43,6 +43,9 @@ void main() {
     tester,
   ) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
     final router = FdrRouter<RR>(root: const Root(), fromUrl: RR.fromUrl);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pump();

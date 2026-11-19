@@ -75,6 +75,7 @@ Future<FdrRouter<RR>> pumpRouter(
   required bool cycle,
 }) async {
   tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+  addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
   final router = FdrRouter<RR>(
     root: Root(cycle: cycle),
     fromUrl: RR.fromUrl,
