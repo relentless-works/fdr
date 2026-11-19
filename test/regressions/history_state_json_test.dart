@@ -34,7 +34,7 @@ class ShelfState extends StatefulNavigatorState<Shelf, RR> {
 
   @override
   List<NavEntry<RR>> build() => [
-    NavPage(route: const RA(), child: const Text('A')),
+    const NavPage(route: RA(), child: Text('A')),
     if (shown is RB)
       NavPage(
         route: const RB(),
