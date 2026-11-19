@@ -146,36 +146,44 @@ class _TabNavigatorState extends State<_TabNavigator> {
 
   @override
   Widget build(BuildContext context) {
-    return NavigatorPopHandler<Object?>(
-      enabled: widget.active,
-      onPopWithResult: (_) {
-        // a vetoed pop is announced to every PopScope of the tabs' route,
-        // including the handlers of inactive tabs
-        if (widget.active) _navigatorKey.currentState?.maybePop();
-      },
-      child: TickerMode(
+    // An inactive tab's Navigator must not tell the ancestors that it can
+    // handle a pop: an enclosing NavigatorPopHandler would then veto system
+    // back, which the active tab at its root cannot handle. When the tab
+    // becomes active, its handler's PopScope changes and the tabs' route
+    // announces the new state.
+    return NotificationListener<NavigationNotification>(
+      onNotification: (_) => !widget.active,
+      child: NavigatorPopHandler<Object?>(
         enabled: widget.active,
-        child: HeroControllerScope(
-          controller: _heroController,
-          child: ValueListenableBuilder(
-            valueListenable: widget.mapper.pages,
-            builder: (context, pages, _) {
-              if (pages.isEmpty) return const SizedBox.shrink();
-              return _NavScope(
-                target: widget.mapper._owner,
-                child: Navigator(
-                  key: _navigatorKey,
-                  pages: [
-                    for (final (i, (key, page)) in keyPages(
-                      pages,
-                      widget.mapper.routeKey,
-                    ).indexed)
-                      page.buildPage(defaultKey: key, forceCanPop: i == 0),
-                  ],
-                  onDidRemovePage: (page) => applyPopContract(page, _keyed),
-                ),
-              );
-            },
+        onPopWithResult: (_) {
+          // a vetoed pop is announced to every PopScope of the tabs' route,
+          // including the handlers of inactive tabs
+          if (widget.active) _navigatorKey.currentState?.maybePop();
+        },
+        child: TickerMode(
+          enabled: widget.active,
+          child: HeroControllerScope(
+            controller: _heroController,
+            child: ValueListenableBuilder(
+              valueListenable: widget.mapper.pages,
+              builder: (context, pages, _) {
+                if (pages.isEmpty) return const SizedBox.shrink();
+                return _NavScope(
+                  target: widget.mapper._owner,
+                  child: Navigator(
+                    key: _navigatorKey,
+                    pages: [
+                      for (final (i, (key, page)) in keyPages(
+                        pages,
+                        widget.mapper.routeKey,
+                      ).indexed)
+                        page.buildPage(defaultKey: key, forceCanPop: i == 0),
+                    ],
+                    onDidRemovePage: (page) => applyPopContract(page, _keyed),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
