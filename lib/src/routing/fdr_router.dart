@@ -57,6 +57,11 @@ class FdrRouterDelegate<R extends NavRoute>
   int _applying = 0;
   bool _started = false;
   bool _openedBeforeStart = false;
+
+  // set by FdrRouter: the initial route is the platform's "/" (no deep
+  // link), and the app asked to keep the navigators' state then
+  bool _keepStateAtStart = false;
+
   List<LocalKey> _reportedStack = const [];
 
   List<NavEntry<Object?>> _entries() => [
@@ -145,10 +150,15 @@ class FdrRouterDelegate<R extends NavRoute>
 
   /// The platform's initial route, unless the app opened a route before it
   /// arrived (e.g. from the notification that launched it): that one wins,
-  /// and its URL replaces the initial one.
+  /// and its URL replaces the initial one. The same for the state the
+  /// navigators start with, if there is no deep link and the app asked for
+  /// it (`FdrRouter.keepStateWithoutDeepLink`).
   @override
   Future<void> setInitialRoutePath(RouteSnapshot<R> configuration) {
-    if (!_openedBeforeStart) return setNewRoutePath(configuration);
+    final keepState = _keepStateAtStart && currentUrl != null;
+    if (!_openedBeforeStart && !keepState) {
+      return setNewRoutePath(configuration);
+    }
     return _keepOpened();
   }
 
@@ -693,6 +703,12 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
 ///
 /// [notFound] builds the page shown on top of the nearest existing page when
 /// a URL does not parse completely (see [NotFound]).
+///
+/// [keepStateWithoutDeepLink]: on a start without a deep link, the platform's
+/// initial route is `/`, which is applied like any route by default. With
+/// `true`, it is not: the navigators keep the state they were created with
+/// (e.g. from a hydrated store), and the URL follows from it. Not on the web,
+/// where `/` is a URL the user opened.
 class FdrRouter<R extends NavRoute> {
   FdrRouter({
     required StatefulNavigator<R> root,
@@ -701,6 +717,7 @@ class FdrRouter<R extends NavRoute> {
     BrowserHistory? browserHistory,
     HistoryAction popFallback = HistoryAction.push,
     RouteInformation? initialRouteInformation,
+    bool keepStateWithoutDeepLink = false,
     @visibleForTesting int? sessionId,
   }) : assert(
          // Dart infers R as a common supertype when root and fromUrl
@@ -715,17 +732,21 @@ class FdrRouter<R extends NavRoute> {
          notFound: notFound,
        ),
        parser = FdrRouteInformationParser(fromUrl: fromUrl) {
+    final platformRoute = initialRouteInformation == null
+        // also lets the router be created before runApp
+        ? WidgetsFlutterBinding.ensureInitialized()
+              .platformDispatcher
+              .defaultRouteName
+        : null;
+    // "/" is what the platform starts with when no route was requested
+    delegate._keepStateAtStart =
+        keepStateWithoutDeepLink &&
+        !kIsWeb &&
+        platformRoute == Navigator.defaultRouteName;
     provider = FdrRouteInformationProvider(
       initialRouteInformation:
           initialRouteInformation ??
-          RouteInformation(
-            // also lets the router be created before runApp
-            uri: Uri.parse(
-              WidgetsFlutterBinding.ensureInitialized()
-                  .platformDispatcher
-                  .defaultRouteName,
-            ),
-          ),
+          RouteInformation(uri: Uri.parse(platformRoute!)),
       scope: delegate.scope,
       browserHistory: browserHistory ?? BrowserHistory.platform(),
       popFallback: popFallback,
