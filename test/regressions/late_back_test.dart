@@ -263,4 +263,56 @@ void main() {
     expectState(s, 'Order 42', app: '/orders/42', entries: entries, at: 1);
     expect(s.browser.deltas, [-1]);
   });
+
+  // The traversal was carried out in time, so the two browser models do not
+  // differ here: only its delivery did not reach the app.
+  testWidgets('a back that happened, with a page opened before it was given '
+      'up, is not expected any more', (tester) async {
+    final s = BrowserSession(tester, '/orders');
+    await s.load();
+    await s.tap(open42);
+    expectState(
+      s,
+      'Order 42',
+      app: '/orders/42',
+      entries: ['/orders', '/orders/42'],
+    );
+
+    await s.tapInFlight(back);
+    // the browser goes back, the entry is not delivered
+    s.browser.pending.clear();
+    s.browser.index = 0;
+    expectState(
+      s,
+      'Orders',
+      app: '/orders',
+      entries: ['/orders', '/orders/42'],
+      at: 0,
+      pendingBacks: 1,
+    );
+
+    await s.tapInFlight(tabSettings);
+    expectState(
+      s,
+      'Settings',
+      app: '/settings',
+      bar: '/orders',
+      entries: ['/orders', '/orders/42'],
+      at: 0,
+      pendingBacks: 1,
+    );
+
+    await tester.pump(lost);
+    await tester.pumpAndSettle();
+    const entries = ['/orders', '/settings'];
+    expectState(s, 'Settings', app: '/settings', entries: entries);
+
+    // nothing is outstanding: this back is the user's
+    await s.traverse(-1);
+    expectState(s, 'Orders', app: '/orders', entries: entries, at: 0);
+    expect(s.browser.deltas, [-1]);
+    await s.traverse(1);
+    expectState(s, 'Settings', app: '/settings', entries: entries);
+    expect(s.browser.deltas, [-1]);
+  });
 }

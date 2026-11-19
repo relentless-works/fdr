@@ -718,6 +718,7 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     if (_index < 0) _entries.clear();
     // the traversal may have happened and only its delivery got lost
     final known = _index >= 0;
+    final at = _index;
     final arrived = known && _entries[_index].uri == info.uri;
     _report((
       info,
@@ -729,7 +730,8 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
           : popFallback,
     ));
     _forgetAbandoned();
-    if (known && !arrived) {
+    // on the entry asked for, nothing is outstanding, whatever was reported
+    if (known && _serialOf(_entries[at]) != given.$1) {
       _abandoned = given;
       _abandonTimer = Timer(backTimeout, _forgetAbandoned);
     }
