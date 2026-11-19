@@ -53,9 +53,8 @@ final class _TabsHost {
   }
 
   void _removeLastTab() {
-    _tabs.removeLast()
-      ..pages.removeListener(_onTabChanged)
-      ..dispose();
+    final tab = _tabs.removeLast()..pages.removeListener(_onTabChanged);
+    _PageMapper._guarded(tab.dispose);
   }
 
   /// The [TabsPage.key] these tabs were built for.
@@ -107,9 +106,8 @@ final class _TabsHost {
 
   void dispose() {
     for (final tab in _tabs) {
-      tab
-        ..pages.removeListener(_onTabChanged)
-        ..dispose();
+      tab.pages.removeListener(_onTabChanged);
+      _PageMapper._guarded(tab.dispose);
     }
     _tabs.clear();
   }

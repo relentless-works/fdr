@@ -62,6 +62,81 @@ class RootState extends StatefulNavigatorState<Root, Never> {
   ];
 }
 
+// a sibling of the navigator whose dispose throws, with a subscription
+class Watcher extends StatefulNavigator<Never> {
+  const Watcher(this.notifier);
+  final ValueNotifier<int> notifier;
+  @override
+  WatcherState createState() => WatcherState();
+}
+
+class WatcherState extends StatefulNavigatorState<Watcher, Never> {
+  static late WatcherState latest;
+  static int builds = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    latest = this;
+    watch(navigator.notifier);
+  }
+
+  @override
+  List<NavEntry<Never>> build() {
+    builds++;
+    return [const NavPage(child: Text('watcher'))];
+  }
+}
+
+class Group extends StatefulNavigator<Never> {
+  const Group(this.notifier, {this.tabs = false});
+  final ValueNotifier<int> notifier;
+  final bool tabs;
+  @override
+  GroupState createState() => GroupState();
+}
+
+class GroupState extends StatefulNavigatorState<Group, Never> {
+  @override
+  List<NavEntry<Never>> build() {
+    final children = [const Old(), Watcher(navigator.notifier)];
+    if (!navigator.tabs) return children;
+    return [
+      TabsPage(
+        index: 1,
+        tabs: children,
+        builder: (context, tabs) => IndexedStack(index: 1, children: tabs),
+      ),
+    ];
+  }
+}
+
+class Shell extends StatefulNavigator<Never> {
+  const Shell(this.child);
+  final StatefulNavigator<Never> child;
+  @override
+  ShellState createState() => ShellState();
+}
+
+class ShellState extends StatefulNavigatorState<Shell, Never> {
+  static late ShellState latest;
+  bool shown = true;
+
+  @override
+  void initState() {
+    super.initState();
+    latest = this;
+  }
+
+  @override
+  List<NavEntry<Never>> build() => [
+    const NavPage(child: Text('home')),
+    if (shown) navigator.child,
+  ];
+}
+
+class Vm {}
+
 void main() {
   setUp(NewState.all.clear);
 
@@ -88,5 +163,69 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(NewState.all.single.mounted, isFalse);
     expect(find.text('home'), findsOneWidget);
+  });
+
+  for (final tabs in [false, true]) {
+    testWidgets('a dispose that throws below a removed navigator leaves no '
+        'sibling mounted (tabs: $tabs)', (tester) async {
+      final notifier = ValueNotifier(0);
+      addTearDown(notifier.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DeclarativeNavigator(
+            navigator: Shell(Group(notifier, tabs: tabs)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final watcher = WatcherState.latest;
+      expect(find.text('watcher'), findsOneWidget);
+      expect(watcher.mounted, isTrue);
+
+      final shell = ShellState.latest;
+      shell.setState(() => shell.shown = false);
+      expect(tester.takeException(), isStateError);
+      await tester.pumpAndSettle();
+      expect(find.text('home'), findsOneWidget);
+      expect(watcher.mounted, isFalse);
+
+      // and it no longer rebuilds on its watch
+      final builds = WatcherState.builds;
+      notifier.value++;
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(WatcherState.builds, builds);
+    });
+  }
+
+  testWidgets('a FutureNavigator whose child throws in dispose still '
+      'releases its value', (tester) async {
+    final vm = Vm();
+    final released = <Vm>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DeclarativeNavigator(
+          navigator: Shell(
+            FutureNavigator<Vm, Never>(
+              key: const ValueKey(1),
+              load: () async => vm,
+              onDispose: released.add,
+              loading: const Text('loading'),
+              error: (e, retry) => Text('$e'),
+              builder: (vm, reload) => const Old(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('old'), findsOneWidget);
+
+    final shell = ShellState.latest;
+    shell.setState(() => shell.shown = false);
+    expect(tester.takeException(), isStateError);
+    await tester.pumpAndSettle();
+    expect(find.text('home'), findsOneWidget);
+    expect(released, [vm]);
   });
 }

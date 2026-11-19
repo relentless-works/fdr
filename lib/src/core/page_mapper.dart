@@ -521,13 +521,15 @@ final class _PageMapper {
   }
 
   void dispose() {
+    // one that throws is reported: thrown, it would leave the ones after
+    // it mounted and subscribed, with nothing left to dispose them
     for (final state in _statesByIndex.nonNulls) {
       state._pageMapper.pages.removeListener(_onChildPagesChanged);
-      state.dispose();
+      _guarded(state.dispose);
     }
     _statesByIndex = [];
     for (final host in _tabsByIndex.nonNulls) {
-      host.dispose();
+      _guarded(host.dispose);
     }
     _tabsByIndex = [];
     _pages.dispose();

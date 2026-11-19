@@ -215,9 +215,12 @@ class _FutureNavigatorState<T, R>
     _generation++;
     // the children built from the data are disposed before it is released;
     // a load still in flight does not keep the superseded values
-    super.dispose();
-    _superseded.forEach(_release);
-    _superseded.clear();
-    if (_loaded) _release(_data);
+    try {
+      super.dispose();
+    } finally {
+      _superseded.forEach(_release);
+      _superseded.clear();
+      if (_loaded) _release(_data);
+    }
   }
 }
