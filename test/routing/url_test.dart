@@ -154,6 +154,21 @@ void main() {
       );
     });
 
+    test('+ with a query name without values: no collision, no winner', () {
+      const value = Url(
+        [],
+        query: {
+          'a': ['1'],
+        },
+      );
+      const none = Url(['x'], query: {'a': []});
+      expect('${value + none}', '/x?a=1');
+      expect('${none + value}', '/x?a=1');
+      expect((value + none).query, {
+        'a': ['1'],
+      });
+    });
+
     test('Urls that print the same are equal', () {
       void same(Url a, Url b) {
         expect('$a', '$b');

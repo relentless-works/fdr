@@ -145,15 +145,16 @@ final class Url {
   /// The part after the first [count] segments, for the next level.
   Url rest(int count) => Url(segments.sublist(count), query: query);
 
-  /// This URL followed by [next]'s segments, with both queries.
+  /// This URL followed by [next]'s segments, with both queries. A query name
+  /// without values prints nothing, so it neither collides nor wins.
   ///
   /// In debug builds, two levels printing the same query parameter with
   /// different values is an error: which one would win is arbitrary.
   Url operator +(Url next) {
     assert(() {
       for (final MapEntry(:key, :value) in next.query.entries) {
-        final mine = query[key];
-        if (mine != null && !listEquals(mine, value)) {
+        final mine = query[key] ?? const [];
+        if (mine.isNotEmpty && value.isNotEmpty && !listEquals(mine, value)) {
           throw FlutterError(
             'The query parameter "$key" is printed twice, as $mine by '
             '$this and as $value by $next. Only one level may own a '
@@ -165,7 +166,12 @@ final class Url {
     }());
     return Url(
       [...segments, ...next.segments],
-      query: {...query, ...next.query},
+      query: {
+        for (final MapEntry(:key, :value) in query.entries.followedBy(
+          next.query.entries,
+        ))
+          if (value.isNotEmpty) key: value,
+      },
     );
   }
 
