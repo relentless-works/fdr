@@ -44,8 +44,50 @@ class _NavPage extends Page<Object?> {
   }
 }
 
+/// Finishes the exit of a page that the state removes while the user drags
+/// it back (the iOS swipe; Material routes have it there too).
+///
+/// The removal pops the route, and the next drag update stops its exit
+/// animation. At the end of the gesture Flutter restarts the animation only
+/// for a route that is still current, so the page stayed on screen, mounted
+/// and unable to take input. Flutter's own `pop` cancels the gesture instead;
+/// an update of `Navigator.pages` does not.
+mixin _ExitAfterGesture on TransitionRoute<Object?> {
+  ValueListenable<bool>? _gesture;
+
+  @override
+  bool didPop(Object? result) {
+    final popped = super.didPop(result);
+    final gesture = navigator?.userGestureInProgressNotifier;
+    if (popped && _gesture == null && (gesture?.value ?? false)) {
+      _gesture = gesture?..addListener(_gestureChanged);
+    }
+    return popped;
+  }
+
+  void _gestureChanged() {
+    if (_gesture?.value ?? false) return;
+    _stopListening();
+    final controller = this.controller!;
+    if (!controller.isAnimating && !controller.isDismissed) {
+      controller.reverse();
+    }
+  }
+
+  void _stopListening() {
+    _gesture?.removeListener(_gestureChanged);
+    _gesture = null;
+  }
+
+  @override
+  void dispose() {
+    _stopListening();
+    super.dispose();
+  }
+}
+
 class _MaterialRoute extends PageRoute<Object?>
-    with MaterialRouteTransitionMixin<Object?> {
+    with MaterialRouteTransitionMixin<Object?>, _ExitAfterGesture {
   _MaterialRoute({required _NavPage page}) : super(settings: page);
 
   _NavPage get _page => settings as _NavPage;
@@ -71,7 +113,7 @@ class _MaterialRoute extends PageRoute<Object?>
 }
 
 class _CupertinoRoute extends PageRoute<Object?>
-    with CupertinoRouteTransitionMixin<Object?> {
+    with CupertinoRouteTransitionMixin<Object?>, _ExitAfterGesture {
   _CupertinoRoute({required _NavPage page}) : super(settings: page);
 
   _NavPage get _page => settings as _NavPage;
