@@ -1,6 +1,6 @@
 import 'package:fdr/fdr.dart';
 import 'package:fdr/src/routing/fdr_router.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'example_app.dart';
@@ -15,6 +15,23 @@ void main() {
             .segments,
         ['orders', 42, -1, '007', '+42', '0x2A', '12345678901234567890', 'a b'],
       );
+    });
+
+    test('dot segments are resolved, also in a relative path', () {
+      // Uri removes them from absolute paths only
+      for (final (input, segments) in [
+        ('../x', ['x']),
+        ('.', <Object>[]),
+        ('..', <Object>[]),
+        ('a/..', <Object>[]),
+        ('../../orders/42', ['orders', 42]),
+        ('%2E%2E/a/%2e/b', ['a', 'b']),
+        ('/a/../b/./c', ['b', 'c']),
+      ]) {
+        final url = _parse(input);
+        expect(url.segments, segments, reason: input);
+        expect(_parse('$url'), url, reason: input);
+      }
     });
 
     test('query parameters: the first value, or all of them', () {
@@ -182,6 +199,15 @@ void main() {
       ));
       expect(resolve('/settings/x/y'), ('/settings', '/settings/x/y'));
       expect(resolve('/nope'), ('/orders', '/nope'));
+    });
+
+    test('a relative location with dot segments prints back', () async {
+      // e.g. the hash URL http://host/#../x
+      final snapshot = await parser.parseRouteInformation(
+        RouteInformation(uri: Uri.parse('../x')),
+      );
+      expect('${snapshot.missing}', '/x');
+      expect('${parser.restoreRouteInformation(snapshot)!.uri}', '/x');
     });
 
     test('a fromUrl that fails otherwise is reported as a bug', () {

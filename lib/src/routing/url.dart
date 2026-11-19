@@ -58,7 +58,8 @@ final class Url {
   const Url(this.segments, {this.query = const {}});
 
   /// Parses the path and query of [uri]; empty segments (a trailing slash)
-  /// are dropped. Percent-encoding that is not UTF-8 (`%E9` from an old
+  /// are dropped, and dot segments are resolved, also in a relative path
+  /// (`../x` is `/x`). Percent-encoding that is not UTF-8 (`%E9` from an old
   /// Latin-1 link) is kept as typed instead of failing.
   factory Url.parse(Uri uri) {
     final query = <String, List<String>>{};
@@ -71,10 +72,15 @@ final class Url {
           .putIfAbsent(_decode(name, query: true), () => [])
           .add(_decode(value, query: true));
     }
-    return Url([
-      for (final segment in uri.path.split('/'))
-        if (segment.isNotEmpty) _segment(_decode(segment)),
-    ], query: query);
+    final segments = <Object>[];
+    for (final segment in uri.path.split('/').map(_decode)) {
+      if (segment == '..') {
+        if (segments.isNotEmpty) segments.removeLast();
+      } else if (segment.isNotEmpty && segment != '.') {
+        segments.add(_segment(segment));
+      }
+    }
+    return Url(segments, query: query);
   }
 
   static String _decode(String text, {bool query = false}) {
