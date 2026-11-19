@@ -231,6 +231,24 @@ void main() {
     expect(api.releasedOrders, ['Order #42 v1']);
   });
 
+  testWidgets('a link into a loaded order reaches its navigator every time', (
+    tester,
+  ) async {
+    await _pumpShop(tester, '/orders/42');
+    api.completeOrder(42);
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byKey(const Key('item-3')));
+      await tester.pumpAndSettle();
+      expect(find.text('Loading item'), findsOneWidget);
+      expect(_url, '/orders/42/items/3');
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(_url, '/orders/42');
+    }
+    expect(OrderNavigatorState.created, 1);
+  });
+
   testWidgets('leaving a loaded order releases it', (tester) async {
     await _pumpShop(tester, '/orders/42');
     api.completeOrder(42);

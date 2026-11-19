@@ -142,9 +142,14 @@ class _FutureNavigatorState<T, R>
   @override
   List<NavEntry<R>> build() {
     if (_hasData) {
+      // handed over once, to the child this build creates or addresses: a
+      // child created later (another navigator for reloaded data) starts
+      // at its first page, not at a deep link it never received
+      final route = _route;
+      _route = null;
       return [
         NestedNavigator<R, R>(
-          route: _route,
+          route: route,
           child: navigator.builder(_data, _load),
         ),
       ];
