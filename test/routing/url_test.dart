@@ -17,6 +17,23 @@ void main() {
       );
     });
 
+    test('integers beyond 2^53 - 1 stay strings on every platform', () {
+      expect(_parse('/9007199254740991/-9007199254740991').segments, [
+        9007199254740991,
+        -9007199254740991,
+      ]);
+      for (final segment in [
+        '9007199254740992',
+        '-9007199254740992',
+        '9223372036854775807', // an int on the VM only
+        '-9223372036854775808',
+        '9223372036854776000', // an int on the web only
+        '100000000000000000000',
+      ]) {
+        expect(_parse('/$segment').segments, [segment]);
+      }
+    });
+
     test('dot segments are resolved, also in a relative path', () {
       // Uri removes them from absolute paths only
       for (final (input, segments) in [

@@ -50,8 +50,9 @@ class NotFound implements Exception {
 /// A parsed URL, or the part of it one level of routes works on.
 ///
 /// [segments] are the path segments still to be read by this level: a
-/// segment that is an integer in canonical form (`42`, not `042` or `+42`) is
-/// an [int], every other segment a [String]. So patterns can read
+/// segment that is an integer in canonical form (`42`, not `042` or `+42`)
+/// and within ±(2^53 - 1), which every platform represents exactly, is an
+/// [int], every other segment a [String]. So patterns can read
 /// `[final int id, ...]`, and each page has exactly one spelling.
 ///
 /// Query parameters are shared by all levels: every level reads [query], and
@@ -112,9 +113,18 @@ final class Url {
 
   static final _escapes = RegExp('(?:%[0-9A-Fa-f]{2})+');
 
+  // the largest integer every platform represents exactly (the web's
+  // doubles), so that a URL has the same segment types everywhere
+  static const _maxInt = 9007199254740991;
+
   static Object _segment(String segment) {
     final number = int.tryParse(segment);
-    return number != null && '$number' == segment ? number : segment;
+    return number != null &&
+            -_maxInt <= number &&
+            number <= _maxInt &&
+            '$number' == segment
+        ? number
+        : segment;
   }
 
   final List<Object> segments;
