@@ -84,7 +84,11 @@ LinkTap linkTap(
 }) {
   // ctrl-click on macOS is a right click
   if (control && platform == TargetPlatform.macOS) return LinkTap.contextMenu;
-  if (meta || control || shift) return LinkTap.newTab;
+  // cmd opens a new tab on Apple platforms only; elsewhere the browser
+  // follows a meta-click in the current tab: opened in the app instead
+  final apple =
+      platform == TargetPlatform.macOS || platform == TargetPlatform.iOS;
+  if ((meta && apple) || control || shift) return LinkTap.newTab;
   // alt-click would download the page: opened in the app instead
   return LinkTap.open;
 }

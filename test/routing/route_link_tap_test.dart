@@ -49,6 +49,24 @@ void main() {
     }
   });
 
+  test('meta-click opens in the app off Apple platforms', () {
+    // the browser would follow it in the current tab, a reload or an entry
+    // without fdr's state
+    for (final platform in [
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+      TargetPlatform.android,
+      TargetPlatform.fuchsia,
+    ]) {
+      expect(linkTap(platform, meta: true), LinkTap.open, reason: '$platform');
+      expect(
+        linkTap(platform, meta: true, control: true),
+        LinkTap.newTab,
+        reason: '$platform',
+      );
+    }
+  });
+
   test('on iOS, cmd-click opens a new tab', () {
     expect(linkTap(TargetPlatform.iOS, meta: true), LinkTap.newTab);
   });
