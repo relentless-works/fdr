@@ -64,8 +64,11 @@ void applyPopContract(
   onPop();
   // checked after the microtasks, so a store whose stream delivers its new
   // state asynchronously (a bloc) has rebuilt the navigator by then
+  final identity = match.$2.identity;
   Timer.run(() {
-    if (current().any((e) => e.$1 == removed.key)) {
+    if (current().any(
+      (e) => e.$1 == removed.key && e.$2.identity == identity,
+    )) {
       _reportPopMisuse(
         'onPop of page ${removed.key} ran but the state still builds the '
         'page; onPop must change the state so the page disappears.',

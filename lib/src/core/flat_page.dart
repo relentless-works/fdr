@@ -17,6 +17,7 @@ final class FlatPage {
     this.key,
     this.keyBase,
     this.nestedPages,
+    this.identity,
   }) : _builder = builder; // ignore: prefer_initializing_formals
 
   final FlatPageBuilder _builder;
@@ -37,6 +38,12 @@ final class FlatPage {
   /// history logic looks into (a pop inside a tab is a pop).
   final List<KeyedPage> Function()? nestedPages;
 
+  /// Tells this page from another one with the same key, compared like
+  /// [Widget.canUpdate]: the kind of entry and its child's type and key. A
+  /// page without a route is keyed by its position, so after its `onPop`
+  /// another page can have its key.
+  final Object? identity;
+
   /// [forceCanPop] is set for the bottom page: `Navigator.maybePop` then
   /// bubbles (Android back leaves the app) instead of being vetoed, while a
   /// `PopScope` inside the page can still veto.
@@ -54,6 +61,7 @@ final class FlatPage {
     key: key,
     keyBase: keyBase,
     nestedPages: nestedPages,
+    identity: identity,
   );
 
   FlatPage withRoute(Object? route) => FlatPage(
@@ -63,5 +71,6 @@ final class FlatPage {
     key: key,
     keyBase: keyBase,
     nestedPages: nestedPages,
+    identity: identity,
   );
 }

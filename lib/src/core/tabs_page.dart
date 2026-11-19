@@ -79,6 +79,7 @@ final class _TabsHost {
       key: _entry.key,
       keyBase: 'fdr:tabs',
       nestedPages: () => keyPages(_activeTab.pages.value, _owner._routeKeyOf),
+      identity: TabsPage,
     );
   }
 
