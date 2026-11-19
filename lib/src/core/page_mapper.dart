@@ -208,12 +208,15 @@ final class _PageMapper {
           pages.addAll(state._pageMapper.pages.value);
 
         case NestedNavigator<Object?, Object?>():
-          assert(
-            entry._debugLiftsWithoutAt,
-            'NestedNavigator around ${entry.child.runtimeType} needs `at`: '
-            'its route type differs from its parent\'s. A navigator with a '
-            'route type needs parents with route types up to the root.',
-          );
+          // checked in every build mode: a release build would otherwise
+          // fail later, with a bare cast error in NestedNavigator._lift
+          if (!entry._liftsWithoutAt) {
+            throw FlutterError(
+              'NestedNavigator around ${entry.child.runtimeType} needs `at`: '
+              'its route type differs from its parent\'s. A navigator with a '
+              'route type needs parents with route types up to the root.',
+            );
+          }
           final route = entry.route;
           final addressed =
               incoming != null &&

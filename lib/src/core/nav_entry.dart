@@ -128,7 +128,7 @@ final class NestedNavigator<P, C> implements NavEntry<P> {
     return at == null ? route as P : at(route as C);
   }
 
-  bool get _debugLiftsWithoutAt => at != null || <C>[] is List<P>;
+  bool get _liftsWithoutAt => at != null || <C>[] is List<P>;
 }
 
 /// Builds the persistent chrome around the tabs, e.g. a `Scaffold` with a
