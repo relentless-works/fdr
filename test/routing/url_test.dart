@@ -26,6 +26,33 @@ void main() {
       expect(url.all('c'), isEmpty);
     });
 
+    test('rawSegments are the segments as strings', () {
+      final url = _parse('/sku/123/007/a%20b');
+      expect(url.segments, ['sku', 123, '007', 'a b']);
+      expect(url.rawSegments, ['sku', '123', '007', 'a b']);
+      // a level with string ids matches ids that look like numbers too
+      final id = switch (url.rawSegments) {
+        ['sku', final String id, ...] => id,
+        _ => null,
+      };
+      expect(id, '123');
+    });
+
+    test('equality ignores the order of query parameters, not of values', () {
+      final url = _parse('/a/1?x=1&y=2&y=3');
+      final reordered = _parse('/a/1?y=2&x=1&y=3');
+      expect(reordered, url);
+      expect(reordered.hashCode, url.hashCode);
+      expect({url, reordered}, hasLength(1));
+
+      expect(_parse('/a/1?x=1&y=3&y=2'), isNot(url));
+      expect(_parse('/a/1?x=1&y=2'), isNot(url));
+      expect(_parse('/a/1?x=1&y=2&y=3&z='), isNot(url));
+      expect(_parse('/a/2?x=1&y=2&y=3'), isNot(url));
+      expect(_parse('/a/1'), const Url(['a', 1]));
+      expect(_parse('/a/1'), isNot(const Url(['a', '1'])));
+    });
+
     test('rest hands the remainder and the query to the next level', () {
       final rest = _parse('/a/b/c?q=1').rest(1).rest(1);
       expect(rest.segments, ['c']);
@@ -103,6 +130,37 @@ void main() {
             })}',
         '/a?page=1',
       );
+    });
+  });
+
+  group('the path and query routed for an incoming URI', () {
+    String route(String uri) =>
+        '${FdrRouteInformationParser.appPath(Uri.parse(uri))}';
+
+    test('a path keeps its query and drops the fragment', () {
+      expect(route('/orders/42?x=1&x=2#top'), '/orders/42?x=1&x=2');
+      expect(route(''), '/');
+      expect(route('https://shop.example'), '/');
+      expect(route('https://shop.example/orders?x=1'), '/orders?x=1');
+      expect(route('http://shop.example:8080/orders'), '/orders');
+    });
+
+    test('a custom scheme has its host as the first segment', () {
+      expect(route('myapp://orders/42?x=1'), '/orders/42?x=1');
+      // lowercased, like every host
+      expect(route('myapp://Orders/42'), '/orders/42');
+      expect(route('myapp:/orders/42'), '/orders/42');
+      expect(route('myapp://'), '/');
+      expect(route('myapp://orders#/settings'), '/orders');
+    });
+
+    test('a web link with the hash URL strategy is routed by the fragment', () {
+      expect(route('https://shop.example/#/orders/42?x=1'), '/orders/42?x=1');
+      expect(route('http://shop.example#/orders'), '/orders');
+      expect(route('https://shop.example/#/'), '/');
+      // a fragment that is no path, or one after a path, is no route
+      expect(route('https://shop.example/#top'), '/');
+      expect(route('https://shop.example/app#/orders'), '/app');
     });
   });
 
