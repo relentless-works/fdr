@@ -1,3 +1,4 @@
+import 'package:fdr/fdr.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../routing/example_app.dart';
@@ -41,6 +42,34 @@ void main() {
     expect(s.browser.deltas, [-2]);
     s.expectAt('/orders', entries: three, at: 0);
     expect(find.text('Order 42'), findsNothing);
+  });
+
+  testWidgets('a requested pop that closes two levels goes back two entries', (
+    tester,
+  ) async {
+    const three = ['/orders', '/orders/42', '/orders/42/items/3'];
+    final s = BrowserSession(tester, '/orders');
+    await s.load();
+    await s.tap(open42);
+    await s.tap(item3);
+    final orders = OrdersNavigatorState.latest!;
+    orders.setState(() => orders.selectedId = null, history: HistoryAction.pop);
+    await tester.pumpAndSettle();
+    await s.arrive();
+    expect(s.browser.deltas, [-2]);
+    s.expectAt('/orders', entries: three, at: 0);
+
+    // one that closes one level goes back one
+    await s.traverse(2);
+    s.expectAt('/orders/42/items/3', entries: three);
+    orders.setState(
+      () => orders.selectedItem = null,
+      history: HistoryAction.pop,
+    );
+    await tester.pumpAndSettle();
+    await s.arrive();
+    expect(s.browser.deltas, [-2, -1]);
+    s.expectAt('/orders/42', entries: three, at: 1);
   });
 
   group('while a back is in flight', () {

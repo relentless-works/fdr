@@ -13,8 +13,9 @@ enum HistoryAction {
   /// Replace the current entry (redirects, wizard steps, canonicalisation).
   replace,
 
-  /// Go back in the browser history if the previous entry is the new URL,
-  /// otherwise fall back to the router's `popFallback`.
+  /// Go back in the browser history if a previous entry is the new URL (as
+  /// many entries back as routed pages were removed from the top, at least
+  /// one), otherwise fall back to the router's `popFallback`.
   pop,
 }
 
@@ -141,8 +142,10 @@ final class RoutingScope {
   /// also moves the delegate's baseline.
   HistoryAction Function()? stackChange;
 
-  /// How many routed pages the last derived [HistoryAction.pop] removed, i.e.
-  /// how many browser entries it may go back; 1 for a requested pop.
+  /// How many browser entries a pop may go back: the number of routed pages
+  /// the stack change of the report removed from the top, also for a
+  /// requested [HistoryAction.pop]; 1 for a requested pop with any other
+  /// stack change.
   int popDepth = 1;
 
   void requestHistory(HistoryAction action) {
