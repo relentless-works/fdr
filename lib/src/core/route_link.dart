@@ -6,7 +6,7 @@ typedef RouteLinkBuilder = Widget Function(
   VoidCallback open,
 );
 
-/// A link to [route], e.g. `RouteLink(route: OrderItem(3), builder: ...)`.
+/// A link to [route], e.g. `RouteLink(route: ItemAt(3), builder: ...)`.
 ///
 /// The route is one of the navigator that shows the link, or of one of its
 /// parents; the nearest navigator of the route's type resolves it. Its URL is

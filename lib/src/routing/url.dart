@@ -29,7 +29,7 @@ abstract class NavRoute {
 /// ```dart
 /// static OrderRoute fromUrl(Url url) => switch (url.segments) {
 ///   [] => const OrderOverview(),
-///   ['items', final int item] => OrderItem(item),
+///   ['items', final int item] => ItemAt(item),
 ///   _ => throw NotFound(url),
 /// };
 /// ```
