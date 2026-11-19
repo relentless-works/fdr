@@ -528,13 +528,17 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   // the latest report that became a traversal: reported if that gets lost
   _Report? _traversing;
 
-  // A traversal given up as lost, which the browser may only be late with:
-  // for another [backTimeout], the entry it delivers is still recognised.
-  // That is the entry asked for, or, in a browser that applies the delta
-  // when it carries the traversal out, the entry that far from the current
-  // one. A traversal by the user to one of these is taken for it.
-  (int serial, int delta)? _abandoned;
+  // How many traversals were given up as lost, which the browser may only
+  // be late with: for another [backTimeout], as many entries of this session
+  // are taken for theirs when they arrive, whichever they are (a browser
+  // may apply the delta to the entry it is on by then). A traversal by the
+  // user is taken for one of them too.
+  int _abandoned = 0;
   Timer? _abandonTimer;
+
+  // the entry the last of them delivered: where the browser is, while the
+  // app and the shadow stay at the app's entry
+  RouteInformation? _lateAt;
 
   /// The browser entries created in this session (URL strings), for tests.
   List<String> get shadowHistory =>
@@ -706,7 +710,7 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   // may still carry the traversal out after that: see [_abandoned].
   void _onBacksLost() {
     final (info, type, action) = _deferred ?? _traversing!;
-    final given = _awaitedBacks.first;
+    final given = [for (final (serial, _) in _awaitedBacks) serial];
     _deferred = null;
     _backsDone();
     final state = browserHistory.currentState;
@@ -730,40 +734,36 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
           : popFallback,
     ));
     _forgetAbandoned();
-    // on the entry asked for, nothing is outstanding, whatever was reported
-    if (known && _serialOf(_entries[at]) != given.$1) {
-      _abandoned = given;
-      _abandonTimer = Timer(backTimeout, _forgetAbandoned);
-    }
+    if (!known) return;
+    // on the entry one of them asked for, that one and those before it
+    // happened, whatever was reported
+    _abandoned = given.length - 1 - given.lastIndexOf(_serialOf(_entries[at]));
+    if (_abandoned == 0) return;
+    _abandonTimer = Timer(backTimeout, () {
+      // what did not arrive by now does not happen any more
+      _abandoned = 0;
+      _undoLate();
+    });
   }
 
   void _forgetAbandoned() {
     _abandonTimer?.cancel();
     _abandonTimer = null;
-    _abandoned = null;
+    _abandoned = 0;
+    _lateAt = null;
   }
 
-  // whether the entry delivered is the one of the traversal given up
-  bool _isLate(Object? serial) {
-    final abandoned = _abandoned;
-    if (abandoned == null || serial is! num || _index < 0) return false;
-    final (asked, delta) = abandoned;
-    if (serial == asked) return true;
-    // the browser's position is not known while it has more to carry out
-    if (_awaitedBacks.isNotEmpty) return false;
-    final at = _index + delta;
-    return at >= 0 && at < _entries.length && _serialOf(_entries[at]) == serial;
-  }
-
-  // The browser carried out a traversal that was given up. The app has
+  // The browser carried out the traversals that were given up. The app has
   // reported the state it is in since, into an entry of its own: it keeps
-  // that state, and the browser goes back to that entry.
-  void _undoLate(num serial, Uri uri) {
+  // that state, and the browser goes back to that entry. Not while more are
+  // to come, or while the app waits for a traversal it asked for since: the
+  // browser carries that one out after these.
+  void _undoLate() {
+    final at = _lateAt;
+    if (at == null || _abandoned > 0 || _awaitedBacks.isNotEmpty) return;
     _forgetAbandoned();
-    // the app asked for another traversal since, which follows this one
-    if (_awaitedBacks.isNotEmpty) return;
     final shown = _entries[_index];
-    _moveTo(serial, uri);
+    _moveTo(_serialOf(at), at.uri);
     final delta = _entries.indexOf(shown) - _index;
     if (delta == 0) return;
     _index += delta;
@@ -808,17 +808,24 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     final own = state is Map && state['fdr'] == 1 && state['s'] == _session;
     final serial = own ? state['i'] : null;
 
-    if (_isLate(serial)) {
-      _undoLate(serial as num, routeInformation.uri);
+    final awaiting = _awaitedBacks.isNotEmpty;
+    final awaited = awaiting && serial == _awaitedBacks.first.$1;
+    if (_abandoned > 0 && serial is num && !awaited) {
+      // a traversal given up, carried out late
+      _abandoned -= 1;
+      _lateAt = _known(serial.toInt(), routeInformation.uri);
+      _undoLate();
       return SynchronousFuture(true);
     }
-    // the browser carries traversals out in the order they were asked for
-    _forgetAbandoned();
+    // nothing late is expected, or the entry is not this session's: the
+    // browser has moved on
+    if (!awaited) _forgetAbandoned();
 
-    final awaiting = _awaitedBacks.isNotEmpty;
     if (awaiting) {
-      if (serial == _awaitedBacks.first.$1) {
+      if (awaited) {
         _awaitedBacks.removeAt(0);
+        // the browser is on the entry the app shows
+        _lateAt = null;
         _moveTo(serial, routeInformation.uri);
         // the app popped in-app and already shows this entry; an entry of
         // an earlier one of several queued traversals is never shown
