@@ -284,8 +284,7 @@ class FdrRouterDelegate<R extends NavRoute>
   @override
   Widget build(BuildContext context) {
     return _ReassembleHook(
-      // hot reload: the update from the root rebuilds every navigator once
-      onReassemble: () => _host.update(_entries()),
+      onReassemble: () => _host.reassemble(_entries),
       child: _host.navigator(key: navigatorKey),
     );
   }

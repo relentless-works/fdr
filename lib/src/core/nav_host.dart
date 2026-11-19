@@ -31,6 +31,27 @@ final class NavHost<R> {
     _mapper.updatePages(entries, incomingRoute: incomingRoute);
   }
 
+  /// Hot reload: the update from the root rebuilds every navigator once. An
+  /// error in a navigator's code is reported, not thrown, and the navigators
+  /// keep what they showed: a throw out of `State.reassemble` would end the
+  /// reassembly of the rest of the app and leave the binding's events locked.
+  void reassemble(List<NavEntry<Object?>> Function() entries) {
+    try {
+      update(entries());
+    } on Object catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'fdr',
+          context: ErrorDescription(
+            'while rebuilding the navigators for hot reload',
+          ),
+        ),
+      );
+    }
+  }
+
   bool _disposed = false;
 
   String? routeKey(Object route) => _target._routeKeyOf(route);

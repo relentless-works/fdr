@@ -9,6 +9,10 @@ import 'routes.dart';
 final builds = <String, int>{};
 void _count(String name) => builds[name] = (builds[name] ?? 0) + 1;
 
+// an edit that makes the root's build throw
+var throwInBuild = false;
+var siblingReassembles = 0;
+
 class _Root<R> extends StatefulNavigator<R> {
   const _Root({this.tabs = false});
   final bool tabs;
@@ -23,6 +27,7 @@ class _RootState<R> extends StatefulNavigatorState<_Root<R>, R> {
   @override
   List<NavEntry<R>> build() {
     _count('root');
+    if (throwInBuild) throw StateError('build boom');
     if (navigator.tabs) {
       return [
         TabsPage(
@@ -74,6 +79,24 @@ class _LeafState extends StatefulNavigatorState<_Leaf, Never> {
   }
 }
 
+// a widget next to the navigators, reassembled after them
+class _Sibling extends StatefulWidget {
+  const _Sibling();
+  @override
+  State<_Sibling> createState() => _SiblingState();
+}
+
+class _SiblingState extends State<_Sibling> {
+  @override
+  void reassemble() {
+    super.reassemble();
+    siblingReassembles++;
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(height: 10);
+}
+
 Future<void> hotReload(WidgetTester tester) async {
   builds.clear();
   // performReassemble awaits endOfFrame; do not await it before pumping
@@ -82,8 +105,34 @@ Future<void> hotReload(WidgetTester tester) async {
   await tester.pump();
 }
 
+// A hot reload after an edit that makes the root's build throw, and one
+// after the edit is fixed.
+Future<void> expectReloadReportsBuildError(WidgetTester tester) async {
+  expect(find.text('leaf 0'), findsOneWidget);
+  throwInBuild = true;
+  addTearDown(() => throwInBuild = false);
+  // a throw out of State.reassemble would end here, with the rest of the
+  // app not reassembled and the binding's events left locked
+  await hotReload(tester);
+  expect(tester.takeException(), isStateError);
+  expect(siblingReassembles, 1);
+  // ignore: invalid_use_of_protected_member
+  expect(tester.binding.locked, isFalse);
+  // the navigators keep what they showed
+  expect(find.text('leaf 0'), findsOneWidget);
+
+  throwInBuild = false;
+  await hotReload(tester);
+  expect(tester.takeException(), isNull);
+  expect(builds, {'root': 1, 'mid': 1, 'leaf': 1});
+  expect(siblingReassembles, 2);
+}
+
 void main() {
-  setUp(builds.clear);
+  setUp(() {
+    builds.clear();
+    siblingReassembles = 0;
+  });
 
   testWidgets('one host: hot reload builds each navigator once', (
     tester,
@@ -150,5 +199,43 @@ void main() {
     await hotReload(tester);
     expect(builds, {'root': 1, 'mid': 1, 'leaf': 1});
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('DeclarativeNavigator: a build that throws on hot reload is '
+      'reported, and the rest of the app is reassembled', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Column(
+          children: [
+            Expanded(child: DeclarativeNavigator(navigator: _Root<Never>())),
+            _Sibling(),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await expectReloadReportsBuildError(tester);
+  });
+
+  testWidgets('router: a build that throws on hot reload is reported, and '
+      'the rest of the app is reassembled', (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
+    final router = FdrRouter<RR>(root: const _Root<RR>(), fromUrl: RR.fromUrl);
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: router.config,
+        builder: (context, child) => Column(
+          children: [
+            Expanded(child: child!),
+            const _Sibling(),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await expectReloadReportsBuildError(tester);
   });
 }

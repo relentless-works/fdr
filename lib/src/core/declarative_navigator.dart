@@ -60,8 +60,7 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator>
   @override
   void reassemble() {
     super.reassemble();
-    // hot reload: the update from the root rebuilds every navigator once
-    _host.update([widget.navigator]);
+    _host.reassemble(() => [widget.navigator]);
   }
 
   @override
