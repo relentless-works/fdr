@@ -2,7 +2,8 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// a modal bottom sheet as a page of the stack
+// a modal bottom sheet as a page of the stack; the route reads the child of
+// the current page, which a rebuild replaces
 class _SheetPage extends Page<Object?> {
   const _SheetPage({super.key, super.canPop, required this.child});
 
@@ -12,7 +13,7 @@ class _SheetPage extends Page<Object?> {
   Route<Object?> createRoute(BuildContext context) => ModalBottomSheetRoute(
     settings: this,
     isScrollControlled: false,
-    builder: (_) => child,
+    builder: (context) => (ModalRoute.settingsOf(context)! as _SheetPage).child,
   );
 }
 
@@ -31,7 +32,9 @@ class _Filters extends StatefulNavigator<Never> {
 
 class _FiltersState extends StatefulNavigatorState<_Filters, Never> {
   static int pops = 0;
+  static late _FiltersState latest;
   bool filtering = false;
+  String label = 'filters';
 
   @override
   List<NavEntry<Never>> build() => [
@@ -52,9 +55,15 @@ class _FiltersState extends StatefulNavigatorState<_Filters, Never> {
               }
             : null,
         builder: navigator.builder,
-        child: const SizedBox(height: 200, child: Text('filters')),
+        child: SizedBox(height: 200, child: Text(label)),
       ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    latest = this;
+  }
 }
 
 void main() {
@@ -72,6 +81,19 @@ void main() {
     expect(find.text('filters'), findsNothing);
     expect(_FiltersState.pops, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a bottom sheet page shows the content of the latest build', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: DeclarativeNavigator(navigator: _Filters())),
+    );
+    await tester.tap(find.text('filter'));
+    await tester.pumpAndSettle();
+    _FiltersState.latest.setState(() => _FiltersState.latest.label = 'two');
+    await tester.pumpAndSettle();
+    expect(find.text('two'), findsOneWidget);
   });
 
   testWidgets('a builder that does not pass the key on is an error', (

@@ -164,6 +164,11 @@ final class TabsPage<R> implements NavEntry<R> {
 
 /// Builds the Flutter [Page] of a [CustomPage]. It has to pass [key] and
 /// [canPop] on to the page (`Page.key`, `Page.canPop`), and show [child].
+///
+/// Each build of the navigator hands the route a new page with the same key.
+/// A route the app writes itself therefore reads the child from its current
+/// `settings` when it builds (e.g. `ModalRoute.settingsOf(context)`), instead
+/// of capturing [child] in `createRoute`.
 typedef CustomPageBuilder = Page<Object?> Function(
   LocalKey key,
   bool canPop,

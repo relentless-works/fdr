@@ -118,12 +118,28 @@ class _DialogPage extends Page<Object?> {
       context,
       MaterialLocalizations,
     );
-    return DialogRoute<Object?>(
+    return _DialogRoute(
       context: context,
-      settings: this,
-      builder: (_) => child,
-      barrierDismissible: canPop && barrierDismissible,
+      page: this,
       barrierLabel: localizations?.modalBarrierDismissLabel ?? 'Dismiss',
     );
   }
+}
+
+/// Reads the child and the barrier from the current page, like the page
+/// routes above: a rebuild hands the route a new page with the same key.
+class _DialogRoute extends DialogRoute<Object?> {
+  _DialogRoute({
+    required super.context,
+    required _DialogPage page,
+    required super.barrierLabel,
+  }) : super(settings: page, builder: _child);
+
+  static Widget _child(BuildContext context) =>
+      (ModalRoute.settingsOf(context)! as _DialogPage).child;
+
+  _DialogPage get _page => settings as _DialogPage;
+
+  @override
+  bool get barrierDismissible => _page.canPop && _page.barrierDismissible;
 }
