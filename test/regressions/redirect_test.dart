@@ -114,4 +114,30 @@ void main() {
     // a typed URL starts a new shadow history, corrected in place
     expect(router.provider.shadowHistory, ['/c']);
   });
+
+  testWidgets('a redirect of the nearest page keeps the not-found page', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    final router = FdrRouter<RR>(
+      root: const Root(),
+      fromUrl: RR.fromUrl,
+      notFound: (url) => scaffold('missing $url'),
+    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
+    await tester.pump();
+
+    // /b is the longest prefix that parses, and it redirects to /c
+    await router.provider.didPushRouteInformation(
+      RouteInformation(uri: Uri.parse('/b/nope')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('missing /b/nope'), findsOneWidget);
+    expect(router.currentUrl, '/b/nope');
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('C'), findsOneWidget);
+    expect(router.currentUrl, '/c');
+  });
 }

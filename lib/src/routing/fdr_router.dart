@@ -203,7 +203,9 @@ class FdrRouterDelegate<R extends NavRoute>
     final nested = _applying > 0;
     _applying++;
     try {
-      _missing = null;
+      // a redirect of the nearest page of a URL that does not parse keeps
+      // the not-found page and the URL as typed
+      if (!nested) _missing = null;
       _host.update(_entries(), incomingRoute: route);
     } finally {
       _applying--;
