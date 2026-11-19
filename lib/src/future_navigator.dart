@@ -18,21 +18,23 @@ typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
 /// and never deals with loading or errors of its own input.
 ///
 /// ```dart
-/// NestedNavigator(
-///   at: (route) => OrderAt(id, route),
-///   route: orderRoute,
-///   onPop: () => setState(() {
-///     id = null;
-///     orderRoute = null;
-///   }),
-///   child: FutureNavigator(
-///     key: ValueKey(id),
-///     load: () => api.order(id),
-///     loading: const LoadingPage(),
-///     error: (error, retry) => ErrorPage(error: error, retry: retry),
-///     builder: (order, reload) => OrderNavigator(order: order),
+/// if (selected case final id?)
+///   NestedNavigator(
+///     at: (route) => OrderAt(id, route),
+///     route: orderRoute,
+///     onPop: () => setState(() {
+///       selected = null;
+///       orderRoute = null;
+///     }),
+///     child: FutureNavigator(
+///       key: ValueKey(id),
+///       load: () => api.order(id),
+///       loading: const LoadingPage(title: 'Order'),
+///       error: (error, retry) => ErrorPage(error: error, retry: retry),
+///       builder: (order, reload) =>
+///           OrderNavigator(api: api, order: order, reload: reload),
+///     ),
 ///   ),
-/// )
 /// ```
 ///
 /// Its route type is the child's. While loading, or after a failure, it shows
@@ -43,9 +45,10 @@ typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
 ///
 /// The route it is given is the [NestedNavigator.route] around it, so open
 /// it with one: `open(OrderAt(id))` or a [RouteLink], which set `orderRoute`
-/// through `applyRoute`, or a `setState` that sets `orderRoute` with `id`.
-/// Without a route, its loading and error pages have no URL: the URL stays
-/// at the page below, and the loaded child's first page adds the entry.
+/// through `applyRoute`, or a `setState` that sets `orderRoute` with
+/// `selected`. Without a route, its loading and error pages have no URL: the
+/// URL stays at the page below, and the loaded child's first page adds the
+/// entry.
 ///
 /// What is loaded is identified by [key]: a different key is a different
 /// navigator, so its state starts over and a load still in flight for the
