@@ -353,7 +353,9 @@ class FdrRouteInformationParser<R extends NavRoute>
     if ((uri.scheme == 'http' || uri.scheme == 'https') &&
         (uri.path.isEmpty || uri.path == '/') &&
         uri.fragment.startsWith('/')) {
-      return appPath(Uri.parse(uri.fragment));
+      // a fragment that is no URI (`#//a:b`) is no route
+      final route = Uri.tryParse(uri.fragment);
+      if (route != null) return appPath(route);
     }
     final web = uri.scheme == 'http' || uri.scheme == 'https';
     final path = !web && uri.host.isNotEmpty
@@ -402,8 +404,28 @@ class FdrRouteInformationParser<R extends NavRoute>
   Future<RouteSnapshot<R>> parseRouteInformation(
     RouteInformation routeInformation,
   ) {
-    final url = Url.parse(normalize(routeInformation.uri));
-    final (route, missing) = resolve(url);
+    final R? route;
+    final Url? missing;
+    try {
+      (route, missing) = resolve(Url.parse(normalize(routeInformation.uri)));
+    } on Object catch (error, stack) {
+      // a bug in the app's `rewriteUri`: handled like one in a `fromUrl`
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'fdr',
+          context: ErrorDescription('while rewriting ${routeInformation.uri}'),
+        ),
+      );
+      return SynchronousFuture(
+        RouteSnapshot(
+          null,
+          missing: Url.parse(routeInformation.uri),
+          historyState: routeInformation.state,
+        ),
+      );
+    }
     return SynchronousFuture(
       RouteSnapshot(
         route,
@@ -877,6 +899,7 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
 /// (`myapp://shop.example/orders/42`) or the path prefix of universal links.
 /// What it returns is then reduced to path and query by the rules of the
 /// default: a host is the first segment unless the scheme is http(s).
+/// An error it throws is reported, and the link shows the not-found page.
 class FdrRouter<R extends NavRoute> {
   FdrRouter({
     required StatefulNavigator<R> root,
