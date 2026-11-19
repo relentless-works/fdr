@@ -300,4 +300,65 @@ void main() {
       ]);
     });
   });
+
+  group('a rebuild', () {
+    testWidgets('that changes neither URL nor history state is not sent', (
+      tester,
+    ) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      final orders = OrdersNavigatorState.latest!;
+      final sent = s.browser.reports.length;
+      for (var i = 0; i < 150; i++) {
+        orders.setState(() => orders.counter++);
+        await tester.pump(const Duration(milliseconds: 66));
+      }
+      expect(find.text('counter 150'), findsOneWidget);
+      expect(s.browser.reports.length, sent);
+      s.expectAt('/orders/42', entries: ['/orders', '/orders/42']);
+
+      // a change of the history state alone is written to the entry, once
+      orders.setState(() => orders.scroll = 120);
+      await tester.pumpAndSettle();
+      orders.setState(() => orders.counter++);
+      await tester.pumpAndSettle();
+      expect(s.browser.reports.sublist(sent), [('/orders/42', true)]);
+      expect('${s.browser.currentState}', contains('scroll: 120'));
+      s.expectAt('/orders/42', entries: ['/orders', '/orders/42']);
+    });
+
+    testWidgets('after a browser back is not sent either, a changed state '
+        'is', (tester) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      final orders = OrdersNavigatorState.latest!;
+      orders.setState(() => orders.scroll = 120);
+      await tester.pumpAndSettle();
+      await s.tap(open42);
+      orders.setState(() => orders.scroll = 30);
+      await tester.pumpAndSettle();
+      expect('${s.browser.currentState}', contains('scroll: 30'));
+
+      await s.traverse(-1);
+      expect(find.text('scroll 120.0'), findsOneWidget);
+      final sent = s.browser.reports.length;
+      orders.setState(() => orders.counter++);
+      await tester.pumpAndSettle();
+      expect(s.browser.reports.length, sent);
+
+      orders.setState(() => orders.scroll = 40);
+      await tester.pumpAndSettle();
+      expect(s.browser.reports.sublist(sent), [('/orders', true)]);
+      expect('${s.browser.currentState}', contains('scroll: 40'));
+      s.expectAt('/orders', entries: ['/orders', '/orders/42'], at: 0);
+
+      // the reloaded app writes its entry again
+      await s.load();
+      expect(s.browser.reports.last, ('/orders', true));
+      expect(find.text('scroll 40.0'), findsOneWidget);
+      expect(s.browser.urls, ['/orders', '/orders/42']);
+      expect((s.router.currentUrl, s.browser.bar), ('/orders', '/orders'));
+    });
+  });
 }

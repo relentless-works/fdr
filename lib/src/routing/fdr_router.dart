@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -452,6 +453,19 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   int _index = -1;
   int _serial = 0;
 
+  // URL and state last written to the browser, which are those of its
+  // current entry until it moves: a report with the same is not sent again
+  // (WebKit limits how often an entry may be written)
+  String? _written;
+
+  static String? _encoded(RouteInformation entry) {
+    try {
+      return jsonEncode([entry.uri.toString(), entry.state]);
+    } on Object {
+      return null;
+    }
+  }
+
   // serials of the entries that pending traversals will deliver
   final List<int> _awaitedBacks = [];
 
@@ -584,6 +598,7 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         ..removeRange(_index + 1, _entries.length)
         ..add(entry);
       _index = _entries.length - 1;
+      _written = _encoded(entry);
     } else {
       final serial = _index >= 0 ? _serialOf(_entries[_index]) : ++_serial;
       final entry = _entry(
@@ -592,10 +607,15 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         serial,
         routeInformation.state,
       );
+      // a rebuild that changed neither URL nor state; the state includes
+      // the serial, so this is the entry that was written
+      final encoded = _encoded(entry);
+      if (_index >= 0 && encoded != null && encoded == _written) return;
       super.routerReportsNewRouteInformation(
         entry,
         type: RouteInformationReportingType.neglect,
       );
+      _written = encoded;
       if (_index < 0) {
         _entries.add(entry);
         _index = 0;
