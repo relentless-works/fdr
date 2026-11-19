@@ -674,7 +674,8 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     final own = state is Map && state['fdr'] == 1 && state['s'] == _session;
     final serial = own ? state['i'] : null;
 
-    if (_awaitedBacks.isNotEmpty) {
+    final awaiting = _awaitedBacks.isNotEmpty;
+    if (awaiting) {
       if (serial == _awaitedBacks.first) {
         _awaitedBacks.removeAt(0);
         _moveTo(serial, routeInformation.uri);
@@ -705,9 +706,23 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         ),
       );
     }
-    // reload, typed URL, OS deep link or another session: start a new shadow
-    _entries.clear();
-    _index = -1;
+    if (state == null &&
+        browserHistory.supportsTraversal &&
+        _index >= 0 &&
+        !awaiting) {
+      // a hash typed into the address bar while the app runs is a new
+      // entry after the current one. The entries before it stay, for later
+      // in-app pops; the report that follows writes this entry's state.
+      _entries
+        ..removeRange(_index + 1, _entries.length)
+        ..add(_known(++_serial, routeInformation.uri));
+      _index = _entries.length - 1;
+    } else {
+      // an OS deep link, another session's entry, or a position that is
+      // not known (a traversal was pending): start a new shadow
+      _entries.clear();
+      _index = -1;
+    }
     return super.didPushRouteInformation(
       RouteInformation(uri: routeInformation.uri),
     );

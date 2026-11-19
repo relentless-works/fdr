@@ -131,11 +131,12 @@ class BrowserSession {
     await _deliver();
   }
 
-  /// A hash typed into the address bar: a new entry without state.
-  Future<void> type(String uri) async {
+  /// A hash typed into the address bar: a new entry without state. With
+  /// [state], an entry that something else wrote.
+  Future<void> type(String uri, {Object? state}) async {
     browser.entries
       ..removeRange(browser.index + 1, browser.entries.length)
-      ..add((uri: uri, state: null));
+      ..add((uri: uri, state: state));
     browser.index = browser.entries.length - 1;
     await _deliver();
   }

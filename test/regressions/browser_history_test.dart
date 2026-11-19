@@ -215,4 +215,89 @@ void main() {
       expect(s.browser.reports.where((r) => !r.$2), [('/orders/42', false)]);
     });
   });
+
+  group('a URL typed into the address bar', () {
+    Future<BrowserSession> atOrder(WidgetTester tester) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      s.expectAt('/orders/42', entries: ['/orders', '/orders/42']);
+      return s;
+    }
+
+    testWidgets('keeps the entries before it for an in-app back', (
+      tester,
+    ) async {
+      const three = ['/orders', '/orders/42', '/orders/42/items/3'];
+      final s = await atOrder(tester);
+      await s.type('/orders/42/items/3');
+      expect(find.text('Item 3 of 42'), findsOneWidget);
+      s.expectAt('/orders/42/items/3', entries: three);
+
+      await s.tap(back);
+      expect(s.browser.deltas, [-1]);
+      s.expectAt('/orders/42', entries: three, at: 1);
+      await s.tap(back);
+      expect(s.browser.deltas, [-1, -1]);
+      s.expectAt('/orders', entries: three, at: 0);
+
+      // the typed entry is one of the app's now
+      await s.traverse(2);
+      s.expectAt('/orders/42/items/3', entries: three);
+    });
+
+    testWidgets('that does not exist is left with a back', (tester) async {
+      const three = ['/orders', '/orders/42', '/orders/42/nope'];
+      final s = await atOrder(tester);
+      await s.type('/orders/42/nope');
+      expect(find.text('No page at /orders/42/nope'), findsOneWidget);
+      s.expectAt('/orders/42/nope', entries: three);
+
+      await s.tap(back);
+      expect(s.browser.deltas, [-1]);
+      s.expectAt('/orders/42', entries: three, at: 1);
+    });
+
+    testWidgets('in an old spelling is corrected in its entry', (tester) async {
+      final s = await atOrder(tester);
+      await s.type('/order/7');
+      expect(find.text('Order 7'), findsOneWidget);
+      const three = ['/orders', '/orders/42', '/orders/7'];
+      s.expectAt('/orders/7', entries: three);
+      // one level up is not the entry before: nothing to go back to
+      await s.tap(back);
+      expect(s.browser.deltas, isEmpty);
+      s.expectAt('/orders', entries: [...three, '/orders']);
+    });
+
+    testWidgets('replaces the entries after it', (tester) async {
+      final s = await atOrder(tester);
+      await s.traverse(-1);
+      await s.type('/settings');
+      s.expectAt('/settings', entries: ['/orders', '/settings']);
+      await s.tap(profile);
+      s.expectAt(
+        '/settings/profile',
+        entries: ['/orders', '/settings', '/settings/profile'],
+      );
+    });
+
+    testWidgets('by another session starts a new shadow', (tester) async {
+      final s = await atOrder(tester);
+      await s.type(
+        '/orders/42/items/3',
+        state: {'fdr': 1, 's': 2, 'i': 7, 'h': null, 'b': <Object?>[]},
+      );
+      expect(s.router.currentUrl, '/orders/42/items/3');
+      expect(s.router.provider.shadowHistory, ['/orders/42/items/3']);
+      await s.tap(back);
+      expect(s.browser.deltas, isEmpty);
+      expect(s.browser.urls, [
+        '/orders',
+        '/orders/42',
+        '/orders/42/items/3',
+        '/orders/42',
+      ]);
+    });
+  });
 }
