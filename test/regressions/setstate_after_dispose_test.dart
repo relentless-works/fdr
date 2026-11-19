@@ -87,6 +87,13 @@ class _ChildState extends StatefulNavigatorState<_Child, Never> {
 }
 
 void main() {
+  setUp(() {
+    _showMid.value = true;
+    _childInits = 0;
+    _childDisposes = 0;
+    _rootApplied = 0;
+  });
+
   testWidgets('setState and open after dispose do nothing', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: DeclarativeNavigator(navigator: _Root())),
@@ -114,5 +121,31 @@ void main() {
     expect(_rootApplied, 0, reason: 'a disposed navigator navigated');
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('with asserts, setState and open after dispose say so', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: DeclarativeNavigator(navigator: _Root())),
+    );
+    final mid = _mid!;
+    expect(mid.mounted, isTrue);
+    _showMid.value = false;
+    await tester.pumpAndSettle();
+    expect(mid.mounted, isFalse);
+
+    Matcher asserts(String message) => throwsA(
+      isA<AssertionError>().having((e) => e.message, 'message', message),
+    );
+    expect(
+      () => mid.setState(() => mid.counter++),
+      asserts('setState() called on _MidState after dispose()'),
+    );
+    expect(mid.counter, 0);
+    expect(
+      () => mid.open('elsewhere'),
+      asserts('open() called on _MidState after dispose()'),
+    );
+    expect(_rootApplied, 0);
   });
 }
