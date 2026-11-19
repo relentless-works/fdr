@@ -449,6 +449,10 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   // history this session knows about survives a reload
   static const _recordedPredecessors = 32;
 
+  // entries kept before the current one: more than a reload restores, and
+  // more than a pop goes back
+  static const _keptPredecessors = 64;
+
   final List<RouteInformation> _entries = [];
   int _index = -1;
   int _serial = 0;
@@ -599,6 +603,12 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         ..add(entry);
       _index = _entries.length - 1;
       _written = _encoded(entry);
+      // a long session does not keep every entry; one the browser goes
+      // back to later is inserted again, as after a reload
+      if (_index > _keptPredecessors) {
+        _entries.removeRange(0, _index - _keptPredecessors);
+        _index = _keptPredecessors;
+      }
     } else {
       final serial = _index >= 0 ? _serialOf(_entries[_index]) : ++_serial;
       final entry = _entry(
@@ -775,11 +785,9 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     int serial,
     Object? historyState,
   ) {
-    final before = _entries.take(position).toList();
-    final recorded = before.skip(
-      before.length > _recordedPredecessors
-          ? before.length - _recordedPredecessors
-          : 0,
+    final recorded = _entries.getRange(
+      position > _recordedPredecessors ? position - _recordedPredecessors : 0,
+      position,
     );
     return RouteInformation(
       uri: uri,

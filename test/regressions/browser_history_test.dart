@@ -361,4 +361,64 @@ void main() {
       expect((s.router.currentUrl, s.browser.bar), ('/orders', '/orders'));
     });
   });
+
+  group('a long session', () {
+    testWidgets('keeps a bounded shadow history off the web', (tester) async {
+      final router = await startOffTheWeb(tester, '/orders');
+      final orders = OrdersNavigatorState.latest!;
+      for (var i = 0; i < 100; i++) {
+        orders.setState(() => orders.selectedId = 42);
+        await tester.pump();
+        orders.setState(() => orders.selectedId = null);
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      expect(router.currentUrl, '/orders');
+      expect(router.provider.shadowHistory.length, 65);
+      expect(router.provider.shadowIndex, 64);
+    });
+
+    testWidgets('still goes back in the browser, also past what the shadow '
+        'keeps', (tester) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      for (var id = 1; id <= 70; id++) {
+        s.router.open(HomeAt(OrdersAt(OrderDetail(id))));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      final urls = ['/orders', for (var id = 1; id <= 70; id++) '/orders/$id'];
+      expect(s.browser.urls, urls);
+      expect(
+        (s.router.currentUrl, s.browser.bar),
+        ('/orders/70', '/orders/70'),
+      );
+      expect(s.router.provider.shadowHistory, urls.sublist(6));
+
+      await s.tap(item3);
+      await s.tap(back);
+      expect(s.browser.deltas, [-1]);
+      expect(s.browser.urls, [...urls, '/orders/70/items/3']);
+      expect(
+        (s.router.currentUrl, s.browser.bar),
+        ('/orders/70', '/orders/70'),
+      );
+      // the entries before an entry that a reload can still use
+      final recorded = (s.browser.currentState! as Map)['b'] as List;
+      expect(recorded.length, 32);
+      expect(recorded.last, [70, '/orders/69']);
+
+      // browser back to an entry the shadow dropped, and on from there
+      await s.traverse(-70);
+      expect((s.router.currentUrl, s.browser.bar), ('/orders', '/orders'));
+      expect(s.router.provider.shadowIndex, 0);
+      await s.traverse(1);
+      expect((s.router.currentUrl, s.browser.bar), ('/orders/1', '/orders/1'));
+      await s.tap(back);
+      expect(s.browser.deltas, [-1, -1]);
+      expect((s.router.currentUrl, s.browser.bar), ('/orders', '/orders'));
+      expect(s.browser.urls, [...urls, '/orders/70/items/3']);
+      expect(s.browser.index, 0);
+    });
+  });
 }

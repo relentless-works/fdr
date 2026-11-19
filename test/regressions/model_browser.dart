@@ -168,6 +168,23 @@ class BrowserSession {
   }
 }
 
+/// The example app without a browser history.
+Future<FdrRouter<AppRoute>> startOffTheWeb(
+  WidgetTester tester,
+  String initialUrl,
+) async {
+  tester.binding.platformDispatcher.defaultRouteNameTestValue = initialUrl;
+  addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
+  final router = FdrRouter<AppRoute>(
+    root: const AppNavigator(loggedIn: true),
+    fromUrl: AppRoute.fromUrl,
+  );
+  addTearDown(router.dispose);
+  await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
+  await tester.pumpAndSettle();
+  return router;
+}
+
 /// After this time, a traversal that did not arrive counts as lost.
 const lost = Duration(seconds: 10);
 
