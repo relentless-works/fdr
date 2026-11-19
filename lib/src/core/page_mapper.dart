@@ -101,8 +101,7 @@ final class _PageMapper {
       _childChanged = false;
       _building = false;
       routing._passes--;
-      // the states that wait for this pass still show their changes
-      if (!done && routing._passes == 0) _guarded(routing._rebuildDeferred);
+      if (!done && routing._passes == 0) routing._abandon();
     }
     if (routing._passes == 0) routing._settle();
   }

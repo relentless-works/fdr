@@ -76,6 +76,15 @@ final class RoutingScope {
     _openQueued();
   }
 
+  // The outermost pass threw. The states that wait for it still show their
+  // changes, but an open() asked for by an update that failed is dropped:
+  // it would run after the next, unrelated update.
+  void _abandon() {
+    _queuedOpen = null;
+    _PageMapper._guarded(_rebuildDeferred);
+    _queuedOpen = null;
+  }
+
   void _openQueued() {
     final queued = _queuedOpen;
     if (queued == null) return;
