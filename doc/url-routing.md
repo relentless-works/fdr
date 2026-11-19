@@ -224,7 +224,7 @@ RouteLink(
 
 ## 6. URLs that do not parse
 
-A level that does not know its rest throws `NotFound(url)`. Dart's exhaustiveness already forces a catch-all case in every switch over a list, so a level writes `_ => throw NotFound(url)` and needs no route case, state or page for it. The parser then looks for the longest prefix of the URL that parses, first without the query, then one segment less at a time. That route is shown with the not-found page on top, and the address bar keeps the URL that was typed, printed the canonical way (`?q=a%20b` as `?q=a+b`, a Latin-1 `%E9` as UTF-8 `%C3%A9`). In the demo:
+A level that does not know its rest throws `NotFound(url)`. Dart's exhaustiveness already forces a catch-all case in every switch over a list, so a level writes `_ => throw NotFound(url)` and needs no route case, state or page for it. The parser then looks for the longest prefix of the URL that parses, first without the query, then one segment less at a time. That route is shown with the not-found page on top, and the address bar keeps the whole URL, not the prefix's, as `Url.parse` read it and printed the canonical way (`/orders/42/./nope/` as `/orders/42/nope`, a Latin-1 `%E9` as UTF-8 `%C3%A9`, `?q=a%20b` as `?q=a+b`). In the demo:
 
 | URL | Shown | Back goes to |
 |---|---|---|
@@ -232,7 +232,7 @@ A level that does not know its rest throws `NotFound(url)`. Dart's exhaustivenes
 | `/orders/abc` | order list, not-found page on top | `/orders` |
 | `/nope` | what `/` parses to (the order list), not-found page on top | `/orders` |
 
-There is one not-found page for the app: `FdrRouter(notFound: (url) => NotFoundPage(url: url))`, with a plain default. It lives until it is popped or something navigates. If the nearest page's `applyRoute` redirects, the not-found page stays on top of the redirect's target, at the URL as typed. A level that wants its own handling can still return a route case for unknown rests and show its own page.
+There is one not-found page for the app: `FdrRouter(notFound: (url) => NotFoundPage(url: url))`, with a plain default. It lives until it is popped or something navigates. If the nearest page's `applyRoute` redirects, the not-found page stays on top of the redirect's target, at the URL that did not parse. A level that wants its own handling can still return a route case for unknown rests and show its own page.
 
 The other kinds of failure:
 

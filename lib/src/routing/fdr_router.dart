@@ -17,8 +17,9 @@ final class RouteSnapshot<R extends NavRoute> {
   /// longest prefix that did. `null` if not even `/` parses.
   final R? route;
 
-  /// The URL as typed, if it did not parse completely: shown with the
-  /// not-found page on top of [route].
+  /// The whole URL as [Url.parse] read it, if it did not parse completely:
+  /// shown with the not-found page on top of [route], and printed the
+  /// canonical way in the address bar.
   final Url? missing;
 
   final Object? historyState;
@@ -248,7 +249,7 @@ class FdrRouterDelegate<R extends NavRoute>
     _applying++;
     try {
       // a redirect of the nearest page of a URL that does not parse keeps
-      // the not-found page and the URL as typed
+      // the not-found page and the URL that did not parse
       if (!nested) _missing = null;
       _host.update(_entries(), incomingRoute: route);
     } finally {

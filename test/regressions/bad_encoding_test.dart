@@ -66,4 +66,21 @@ void main() {
     expect(router.currentUrl, '/b/caf%C3%A9');
     expect(router.provider.value.uri.toString(), '/b/caf%C3%A9');
   });
+
+  // the URL that did not parse stays in the address bar, not the prefix's,
+  // as Url.parse read it and printed the canonical way (NotFound's dartdoc)
+  for (final (typed, shown) in [
+    ('/b/nope', '/b/nope'),
+    ('/b/./nope/', '/b/nope'),
+    ('/b/x/../nope', '/b/nope'),
+    ('/b/nope?q=a%20b', '/b/nope?q=a+b'),
+  ]) {
+    testWidgets('$typed shows the not-found page at $shown', (tester) async {
+      final router = await start(tester, typed);
+      expect(find.text('B', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('No page'), findsOneWidget);
+      expect(router.currentUrl, shown);
+      expect(router.provider.value.uri.toString(), shown);
+    });
+  }
 }

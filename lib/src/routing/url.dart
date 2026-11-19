@@ -35,8 +35,11 @@ abstract class NavRoute {
 /// ```
 ///
 /// The router then shows the longest prefix of the URL that does parse
-/// (`/orders/42` for `/orders/42/nope`), with the not-found page on top; the
-/// address bar keeps the URL as typed.
+/// (`/orders/42` for `/orders/42/nope`), with the not-found page on top. The
+/// address bar keeps the whole URL, not the prefix's, as [Url.parse] read
+/// it and printed the canonical way: `/orders/42/./nope/` as
+/// `/orders/42/nope`, a Latin-1 `%E9` as UTF-8 `%C3%A9`, `?q=a%20b` as
+/// `?q=a+b`.
 class NotFound implements Exception {
   NotFound(this.url);
 
