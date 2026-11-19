@@ -92,6 +92,9 @@ class BrowserSession {
       browserHistory: browser,
       sessionId: 1,
     );
+    // the page transitions of a few taps take longer than the browser may
+    // take for a traversal
+    router.provider.backTimeout = lost;
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pumpAndSettle();
   }
@@ -164,6 +167,11 @@ class BrowserSession {
   }
 }
 
+/// After this time, a traversal that did not arrive counts as lost.
+const lost = Duration(seconds: 10);
+
 final back = find.byType(BackButton);
 final open42 = find.byKey(const Key('open-42'));
 final item3 = find.byKey(const Key('item-3'));
+final tabSettings = find.byKey(const Key('tab-settings'));
+final profile = find.byKey(const Key('profile'));

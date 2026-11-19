@@ -602,6 +602,8 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('open-42')));
     await tester.pumpAndSettle();
+    // settling the page transitions takes longer than a traversal may
+    router.provider.backTimeout = const Duration(minutes: 1);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(router.provider.pendingBacks, 1);

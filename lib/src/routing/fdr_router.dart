@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -456,6 +458,15 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   // the latest report made while a back was in flight, sent once it arrived
   _Report? _deferred;
 
+  /// How long the browser may take to deliver a traversal before it counts
+  /// as lost (it takes a frame or two). Settable for tests, in which
+  /// settling a page transition takes that long.
+  Duration backTimeout = const Duration(seconds: 1);
+  Timer? _backTimer;
+
+  // the latest report that became a traversal: reported if that gets lost
+  _Report? _traversing;
+
   /// The browser entries created in this session (URL strings), for tests.
   List<String> get shadowHistory =>
       _entries.map((e) => e.uri.toString()).toList();
@@ -495,6 +506,8 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
       _deferred = null;
       _index -= steps;
       _awaitedBacks.add(_serialOf(_entries[_index]));
+      _traversing = report;
+      _awaitBacks();
       browserHistory.go(-steps);
       return;
     }
@@ -592,6 +605,69 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     }
   }
 
+  void _awaitBacks() {
+    _backTimer?.cancel();
+    _backTimer = Timer(backTimeout, _onBacksLost);
+  }
+
+  void _backsDone() {
+    _backTimer?.cancel();
+    _backTimer = null;
+    _awaitedBacks.clear();
+    _traversing = null;
+  }
+
+  // The browser did not deliver a traversal: `history.go` does nothing if
+  // the entry does not exist, which happens once the shadow and the real
+  // history disagree. Reporting must not wait for it forever. The shadow
+  // continues at the entry the browser is on, if it knows that one, and
+  // the app's URL is reported there without another traversal.
+  void _onBacksLost() {
+    final (info, type, action) = _deferred ?? _traversing!;
+    _deferred = null;
+    _backsDone();
+    final state = browserHistory.currentState;
+    final own = state is Map && state['fdr'] == 1 && state['s'] == _session;
+    final serial = own ? state['i'] : null;
+    _index = serial is num
+        ? _entries.indexWhere((e) => _serialOf(e) == serial)
+        : -1;
+    if (_index < 0) _entries.clear();
+    // the traversal may have happened and only its delivery got lost
+    final arrived = _index >= 0 && _entries[_index].uri == info.uri;
+    _report((
+      info,
+      type,
+      action != HistoryAction.pop
+          ? action
+          : arrived
+          ? HistoryAction.replace
+          : popFallback,
+    ));
+  }
+
+  // nothing is delivered or reported while no Router listens
+  @override
+  void addListener(VoidCallback listener) {
+    super.addListener(listener);
+    if (_awaitedBacks.isNotEmpty && _backTimer == null) _awaitBacks();
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    if (!hasListeners) {
+      _backTimer?.cancel();
+      _backTimer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _backTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Future<bool> didPushRouteInformation(RouteInformation routeInformation) {
     final state = routeInformation.state;
@@ -607,12 +683,13 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         if (_awaitedBacks.isEmpty) {
           final deferred = _deferred;
           _deferred = null;
+          _backsDone();
           if (deferred != null) _report(deferred);
         }
         return SynchronousFuture(true);
       }
       // the user moved through the history on their own: the browser wins
-      _awaitedBacks.clear();
+      _backsDone();
       _deferred = null;
     }
 

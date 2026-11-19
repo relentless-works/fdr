@@ -128,4 +128,91 @@ void main() {
       s.expectAt('/orders/42/items/3', entries: three);
     });
   });
+
+  group('a back the browser does not deliver', () {
+    testWidgets('does not stop later navigation from being reported', (
+      tester,
+    ) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      await s.tapInFlight(back);
+      // the browser does nothing
+      s.browser.pending.clear();
+      await s.tapInFlight(tabSettings);
+      await s.tapInFlight(profile);
+      expect(s.router.currentUrl, '/settings/profile');
+      expect(s.browser.bar, '/orders/42');
+
+      await tester.pump(lost);
+      s.expectAt(
+        '/settings/profile',
+        entries: ['/orders', '/orders/42', '/settings/profile'],
+      );
+
+      // and reporting goes on as usual
+      await s.tap(back);
+      s.expectAt(
+        '/settings',
+        entries: ['/orders', '/orders/42', '/settings/profile', '/settings'],
+      );
+    });
+
+    testWidgets('past the start of the history falls back to a push', (
+      tester,
+    ) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      // the browser dropped its oldest entry, as it does at its limit
+      s.browser
+        ..entries.removeAt(0)
+        ..index = 0;
+      await s.tap(back);
+      expect(s.browser.deltas, [-1]);
+      expect(s.router.currentUrl, '/orders');
+      expect(s.browser.bar, '/orders/42');
+
+      await tester.pump(lost);
+      expect(s.router.currentUrl, '/orders');
+      expect(s.browser.bar, '/orders');
+      expect(s.browser.urls, ['/orders/42', '/orders']);
+      expect(s.router.provider.pendingBacks, 0);
+
+      // browser back shows the order again
+      await s.traverse(-1);
+      expect(s.router.currentUrl, '/orders/42');
+      expect(find.text('Order 42'), findsOneWidget);
+    });
+
+    testWidgets('but carried out adds no entry', (tester) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      await s.tapInFlight(back);
+      // the entry changes, but the app never hears of it
+      s.browser
+        ..pending.clear()
+        ..index = 0;
+      await tester.pump(lost);
+      s.expectAt('/orders', entries: ['/orders', '/orders/42'], at: 0);
+      expect(s.browser.reports.where((r) => !r.$2), [('/orders/42', false)]);
+
+      await s.tap(open42);
+      s.expectAt('/orders/42', entries: ['/orders', '/orders/42']);
+    });
+
+    testWidgets('is still awaited within the time it may take', (tester) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      await s.tapInFlight(back);
+      await tester.pump(lost - const Duration(seconds: 1));
+      expect(s.router.provider.pendingBacks, 1);
+      await s.arrive();
+      await tester.pump(lost);
+      s.expectAt('/orders', entries: ['/orders', '/orders/42'], at: 0);
+      expect(s.browser.reports.where((r) => !r.$2), [('/orders/42', false)]);
+    });
+  });
 }
