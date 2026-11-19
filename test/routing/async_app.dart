@@ -209,6 +209,7 @@ class OrderNavigator extends StatefulNavigator<OrderRoute> {
 class OrderNavigatorState
     extends StatefulNavigatorState<OrderNavigator, OrderRoute> {
   static int created = 0;
+  static OrderNavigatorState? latest;
   int? selectedItem;
   ItemRoute? itemRoute;
 
@@ -216,6 +217,7 @@ class OrderNavigatorState
   void initState() {
     super.initState();
     created++;
+    latest = this;
   }
 
   @override

@@ -231,6 +231,58 @@ void main() {
     expect(api.releasedOrders, ['Order #42 v1']);
   });
 
+  testWidgets('a failed reload keeps the data and completes with the error', (
+    tester,
+  ) async {
+    await _pumpShop(tester, '/orders/42');
+    api.completeOrder(42);
+    await tester.pumpAndSettle();
+
+    final reload = OrderNavigatorState.latest!.navigator.reload();
+    api.failOrder(42);
+    await expectLater(reload, throwsA(isA<StateError>()));
+    await tester.pumpAndSettle();
+    expect(find.text('Order #42 v1'), findsOneWidget);
+    expect(find.textContaining('offline'), findsNothing);
+    expect(_url, '/orders/42');
+    expect(OrderNavigatorState.created, 1);
+    expect(api.releasedOrders, isEmpty);
+
+    // and a reload after it shows its data
+    final again = OrderNavigatorState.latest!.navigator.reload();
+    api.completeOrder(42, version: 2);
+    await again;
+    await tester.pumpAndSettle();
+    expect(find.text('Order #42 v2'), findsOneWidget);
+    expect(api.releasedOrders, ['Order #42 v1']);
+  });
+
+  testWidgets('of two overlapping reloads, the later one is shown', (
+    tester,
+  ) async {
+    await _pumpShop(tester, '/orders/42');
+    api.completeOrder(42);
+    await tester.pumpAndSettle();
+
+    final reload = OrderNavigatorState.latest!.navigator.reload;
+    final first = reload();
+    final second = reload();
+    final [_, earlier, later] = api.orderLoads[42]!;
+    later.complete(const Order(42, version: 3));
+    await second;
+    await tester.pumpAndSettle();
+    expect(find.text('Order #42 v3'), findsOneWidget);
+    expect(api.releasedOrders, ['Order #42 v1']);
+
+    // the earlier one arrives late: never shown, released at once
+    earlier.complete(const Order(42, version: 2));
+    await first;
+    await tester.pumpAndSettle();
+    expect(find.text('Order #42 v3'), findsOneWidget);
+    expect(api.releasedOrders, ['Order #42 v1', 'Order #42 v2']);
+    expect(OrderNavigatorState.created, 1);
+  });
+
   testWidgets('a link into a loaded order reaches its navigator every time', (
     tester,
   ) async {
