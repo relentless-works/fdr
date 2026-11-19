@@ -627,6 +627,8 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   // at its place
   void _moveTo(Object? serial, Uri uri) {
     if (serial is! num) return;
+    // a serial learned from the browser is not handed out again
+    if (serial > _serial) _serial = serial.toInt();
     final i = _entries.indexWhere((e) => _serialOf(e) == serial);
     if (i >= 0) {
       _index = i;
