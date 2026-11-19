@@ -6,8 +6,13 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+*" # tag-pattern on pub.dev, e.g. 'v1.2.3'
 
 jobs:
+  test:
+    name: Test package
+    uses: ./.github/workflows/tests.yml
+
   publish:
     name: Publish to pub.dev
+    needs: test
     runs-on: ubuntu-latest
 
     permissions:
@@ -26,7 +31,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.24.0
+          flutter-version: 3.47.5 # the version tests.yml runs
+
+      # `--force` below publishes despite warnings; the dry run fails on them
+      - name: Validate package
+        run: flutter pub publish --dry-run
 
       - name: Publish to pub.dev
         run: flutter pub publish --force
