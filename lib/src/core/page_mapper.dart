@@ -241,9 +241,12 @@ final class _PageMapper {
           pages.addAll(childPages);
 
         case TabsPage<Object?>():
-          final existing = index < _tabsByIndex.length
-              ? _tabsByIndex[index]
-              : null;
+          // matched like its page key: by key, unkeyed ones in order, so
+          // the tabs keep their state when other entries come and go
+          // below them
+          bool free(_TabsHost? h) =>
+              h != null && !reused.contains(h) && h.key == entry.key;
+          final existing = _tabsByIndex.where(free).firstOrNull;
           final _TabsHost host;
           if (existing != null) {
             host = existing;

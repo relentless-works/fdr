@@ -51,6 +51,9 @@ final class _TabsHost {
       ..dispose();
   }
 
+  /// The [TabsPage.key] these tabs were built for.
+  LocalKey? get key => _entry.key;
+
   _PageMapper get _activeTab => _tabs[_entry.index];
 
   FlatPage page() {
