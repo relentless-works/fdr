@@ -63,10 +63,12 @@ final class Url {
 
   /// Parses the path and query of [uri]; its scheme, authority and fragment
   /// are ignored. Empty segments (a trailing slash) are dropped, and dot
-  /// segments are resolved, also in a relative path
-  /// (`../x` is `/x`). Percent-encoding that is not UTF-8 (`%E9` from an old
-  /// Latin-1 link) is read as Latin-1 instead of failing, and printed as
-  /// UTF-8.
+  /// segments are resolved, also in a relative path (`../x` is `/x`).
+  /// Percent-encoding that is not UTF-8 (`%E9` from an old Latin-1 link) is
+  /// read as Latin-1 instead of failing, and printed as UTF-8.
+  ///
+  /// Like a const Url, the result cannot be changed: copy a list before
+  /// sorting it (`[...url.all('tag')]..sort()`).
   factory Url.parse(Uri uri) {
     final query = <String, List<String>>{};
     for (final pair in uri.query.split('&')) {
@@ -86,7 +88,14 @@ final class Url {
         segments.add(_segment(segment));
       }
     }
-    return Url(segments, query: query);
+    // every level and the router hold the same collections
+    return Url(
+      List.unmodifiable(segments),
+      query: Map.unmodifiable({
+        for (final MapEntry(:key, :value) in query.entries)
+          key: List<String>.unmodifiable(value),
+      }),
+    );
   }
 
   static String _decode(String text, {bool query = false}) {
@@ -144,7 +153,8 @@ final class Url {
   List<String> all(String name) => query[name] ?? const [];
 
   /// The part after the first [count] segments, for the next level.
-  Url rest(int count) => Url(segments.sublist(count), query: query);
+  Url rest(int count) =>
+      Url(List.unmodifiable(segments.sublist(count)), query: query);
 
   /// This URL followed by [next]'s segments, with both queries. A query name
   /// without values prints nothing, so it neither collides nor wins.

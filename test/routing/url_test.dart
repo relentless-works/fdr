@@ -136,6 +136,18 @@ void main() {
       expect(const Url([]).toString(), '/');
     });
 
+    test('a parsed Url, like a const one, cannot be changed', () {
+      final url = _parse('/a/b?x=1');
+      final rest = url.rest(1);
+      expect(() => url.segments.add('c'), throwsUnsupportedError);
+      expect(() => url.query.remove('x'), throwsUnsupportedError);
+      expect(() => url.all('x').add('2'), throwsUnsupportedError);
+      expect(() => rest.segments.add('c'), throwsUnsupportedError);
+      expect(() => rest.query['y'] = [], throwsUnsupportedError);
+      expect(() => rest.all('x').sort(), throwsUnsupportedError);
+      expect('$url', '/a/b?x=1');
+    });
+
     test('+ appends segments and merges the queries', () {
       final url =
           const Url(
