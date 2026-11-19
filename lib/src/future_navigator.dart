@@ -37,6 +37,12 @@ typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
 /// entry. That route is handed to the child when it is created, which makes
 /// deep links into nested, separately loaded levels work.
 ///
+/// The route it is given is the [NestedNavigator.route] around it, so open
+/// it with one: `open(OrderAt(id))` or a [RouteLink], which set `orderRoute`
+/// through `applyRoute`, or a `setState` that sets `orderRoute` with `id`.
+/// Without a route, its loading and error pages have no URL: the URL stays
+/// at the page below, and the loaded child's first page adds the entry.
+///
 /// What is loaded is identified by [key]: a different key is a different
 /// navigator, so its state starts over and a load still in flight for the
 /// old key is ignored. The loaded value lives as long as this navigator's
