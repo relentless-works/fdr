@@ -156,6 +156,138 @@ void main() {
       await s.arrive();
       s.expectAt('/orders/42/items/3', entries: three);
     });
+
+    testWidgets('the user moving through the history wins over it', (
+      tester,
+    ) async {
+      final s = await atItem(tester);
+      await s.tapInFlight(back);
+      await s.tapInFlight(tabSettings);
+      expect(s.router.currentUrl, '/settings');
+      expect(s.router.provider.pendingBacks, 1);
+
+      // before the browser carries out the app's back, the user goes back
+      // two entries on their own
+      s.browser.pending.clear();
+      await s.traverse(-2);
+      s.expectAt('/orders', entries: three, at: 0);
+      expect(find.text('Orders'), findsOneWidget);
+      // what was deferred describes a state the user has left
+      final sent = [for (final (uri, _) in s.browser.reports) uri];
+      expect(sent, isNot(contains('/settings')));
+      expect(s.browser.reports.last, ('/orders', true));
+
+      // reporting goes on from the entry the browser is at
+      await s.tap(open42);
+      s.expectAt('/orders/42', entries: ['/orders', '/orders/42']);
+    });
+
+    testWidgets('a URL typed meanwhile starts a new shadow history', (
+      tester,
+    ) async {
+      final s = await atItem(tester);
+      await s.tapInFlight(back);
+      s.browser.pending.clear();
+      await s.type('/settings');
+      expect((s.router.currentUrl, s.browser.bar), ('/settings', '/settings'));
+      expect(s.router.provider.pendingBacks, 0);
+      // where the browser was is not known, so neither are the entries
+      // before the typed one
+      expect(s.router.provider.shadowHistory, ['/settings']);
+      expect(s.browser.urls, [...three, '/settings']);
+
+      await s.tap(profile);
+      await s.tap(back);
+      expect(s.browser.deltas, [-1, -1]);
+      expect(s.router.currentUrl, '/settings');
+      expect(s.browser.bar, '/settings');
+      expect(s.browser.urls, [...three, '/settings', '/settings/profile']);
+    });
+  });
+
+  group('a pop that cannot go back in the browser', () {
+    testWidgets('pushes by default, after a cold start on a deep link', (
+      tester,
+    ) async {
+      final s = BrowserSession(tester, '/orders/42');
+      await s.load();
+      await s.tap(back);
+      expect(s.browser.deltas, isEmpty);
+      s.expectAt('/orders', entries: ['/orders/42', '/orders']);
+    });
+
+    testWidgets('replaces with popFallback: replace', (tester) async {
+      final s = BrowserSession(
+        tester,
+        '/orders/42',
+        popFallback: HistoryAction.replace,
+      );
+      await s.load();
+      await s.tap(back);
+      expect(s.browser.deltas, isEmpty);
+      s.expectAt('/orders', entries: ['/orders']);
+
+      // a pop that can go back still does
+      await s.tap(open42);
+      await s.tap(back);
+      expect(s.browser.deltas, [-1]);
+      s.expectAt('/orders', entries: ['/orders', '/orders/42'], at: 0);
+    });
+
+    testWidgets('replaces off the web with popFallback: replace', (
+      tester,
+    ) async {
+      final router = await startOffTheWeb(
+        tester,
+        '/orders',
+        popFallback: HistoryAction.replace,
+      );
+      await tester.tap(open42);
+      await tester.pumpAndSettle();
+      expect(router.provider.shadowHistory, ['/orders', '/orders/42']);
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+      expect(router.currentUrl, '/orders');
+      expect(router.provider.shadowHistory, ['/orders', '/orders']);
+      expect(router.provider.shadowIndex, 1);
+    });
+  });
+
+  group('an explicit history action on setState', () {
+    testWidgets('replace on opening a page adds no entry', (tester) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      final orders = OrdersNavigatorState.latest!;
+      orders.setState(
+        () => orders.selectedId = 42,
+        history: HistoryAction.replace,
+      );
+      await tester.pumpAndSettle();
+      s.expectAt('/orders/42', entries: ['/orders/42']);
+      expect(find.text('Order 42'), findsOneWidget);
+
+      // so back has no entry to go back to
+      await s.tap(back);
+      expect(s.browser.deltas, isEmpty);
+      s.expectAt('/orders', entries: ['/orders/42', '/orders']);
+    });
+
+    testWidgets('push on closing a page adds one instead of going back', (
+      tester,
+    ) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      final orders = OrdersNavigatorState.latest!;
+      orders.setState(
+        () => orders.selectedId = null,
+        history: HistoryAction.push,
+      );
+      await tester.pumpAndSettle();
+      await s.arrive();
+      expect(s.browser.deltas, isEmpty);
+      s.expectAt('/orders', entries: ['/orders', '/orders/42', '/orders']);
+    });
   });
 
   group('a back the browser does not deliver', () {

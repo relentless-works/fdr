@@ -56,11 +56,15 @@ class ModelBrowser implements BrowserHistory {
 
 /// The example app in a [ModelBrowser], driven by user actions.
 class BrowserSession {
-  BrowserSession(this.tester, String initialUrl)
-    : browser = ModelBrowser(initialUrl);
+  BrowserSession(
+    this.tester,
+    String initialUrl, {
+    this.popFallback = HistoryAction.push,
+  }) : browser = ModelBrowser(initialUrl);
 
   final WidgetTester tester;
   final ModelBrowser browser;
+  final HistoryAction popFallback;
   late FdrRouter<AppRoute> router;
 
   /// Loads the page at the current entry: the first start, or a reload.
@@ -90,6 +94,7 @@ class BrowserSession {
       fromUrl: AppRoute.fromUrl,
       notFound: (url) => NotFoundPage(url: url),
       browserHistory: browser,
+      popFallback: popFallback,
       sessionId: 1,
     );
     // the page transitions of a few taps take longer than the browser may
@@ -171,13 +176,15 @@ class BrowserSession {
 /// The example app without a browser history.
 Future<FdrRouter<AppRoute>> startOffTheWeb(
   WidgetTester tester,
-  String initialUrl,
-) async {
+  String initialUrl, {
+  HistoryAction popFallback = HistoryAction.push,
+}) async {
   tester.binding.platformDispatcher.defaultRouteNameTestValue = initialUrl;
   addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
   final router = FdrRouter<AppRoute>(
     root: const AppNavigator(loggedIn: true),
     fromUrl: AppRoute.fromUrl,
+    popFallback: popFallback,
   );
   addTearDown(router.dispose);
   await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
