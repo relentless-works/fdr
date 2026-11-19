@@ -489,7 +489,10 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         : null;
     if (steps != null) {
       // the engine delivers that entry as pushRouteInformation, which
-      // didPushRouteInformation recognises and swallows
+      // didPushRouteInformation recognises and swallows. What was deferred
+      // during an earlier traversal describes a state the app has left: the
+      // state now is that entry's.
+      _deferred = null;
       _index -= steps;
       _awaitedBacks.add(_serialOf(_entries[_index]));
       browserHistory.go(-steps);

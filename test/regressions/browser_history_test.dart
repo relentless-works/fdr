@@ -42,4 +42,52 @@ void main() {
     s.expectAt('/orders', entries: three, at: 0);
     expect(find.text('Order 42'), findsNothing);
   });
+
+  group('while a back is in flight', () {
+    const three = ['/orders', '/orders/42', '/orders/42/items/3'];
+
+    Future<BrowserSession> atItem(WidgetTester tester) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      await s.tap(item3);
+      s.expectAt('/orders/42/items/3', entries: three);
+      return s;
+    }
+
+    testWidgets('a rebuild before a second back is not replayed after it', (
+      tester,
+    ) async {
+      final s = await atItem(tester);
+      await s.tapInFlight(back);
+      expect(s.router.currentUrl, '/orders/42');
+      final orders = OrdersNavigatorState.latest!;
+      orders.setState(() => orders.counter++);
+      await tester.pumpAndSettle();
+      await s.tapInFlight(back);
+      expect(s.router.currentUrl, '/orders');
+      expect(s.router.provider.pendingBacks, 2);
+
+      await s.arrive();
+      expect(s.browser.deltas, [-1, -1]);
+      s.expectAt('/orders', entries: three, at: 0);
+    });
+
+    testWidgets('a push before a back over two levels is not replayed', (
+      tester,
+    ) async {
+      final s = await atItem(tester);
+      await s.tapInFlight(back);
+      await s.tapInFlight(item3);
+      expect(s.router.currentUrl, '/orders/42/items/3');
+      final orders = OrdersNavigatorState.latest!;
+      orders.setState(() => orders.selectedId = null);
+      await tester.pumpAndSettle();
+      expect(s.router.currentUrl, '/orders');
+
+      await s.arrive();
+      expect(s.browser.deltas, [-1, -1]);
+      s.expectAt('/orders', entries: three, at: 0);
+    });
+  });
 }
