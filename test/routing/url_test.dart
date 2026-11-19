@@ -34,6 +34,23 @@ void main() {
       }
     });
 
+    test('an escape that is not UTF-8 is read as Latin-1, on its own', () {
+      for (final (input, segment, value, printed) in [
+        ('/caf%E9', 'café', null, '/caf%C3%A9'),
+        // the other escapes and '+' in the same component still decode
+        ('/a%20b%E9', 'a bé', null, '/a%20b%C3%A9'),
+        ('/x?q=a+b%E9', 'x', 'a bé', '/x?q=a+b%C3%A9'),
+        ('/x?q=%2B%E9%20', 'x', '+é ', '/x?q=%2B%C3%A9+'),
+        ('/%C3/%C3%A9', 'Ã', null, '/%C3%83/%C3%A9'),
+      ]) {
+        final url = _parse(input);
+        expect(url.segments.first, segment, reason: input);
+        expect(url['q'], value, reason: input);
+        expect('$url', printed, reason: input);
+        expect(_parse(printed), url, reason: input);
+      }
+    });
+
     test('query parameters: the first value, or all of them', () {
       final url = _parse('/x?a=1&a=2&b=');
       expect(url['a'], '1');

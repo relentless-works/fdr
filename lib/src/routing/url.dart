@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 /// A route: the address of what a navigator shows.
@@ -60,7 +62,8 @@ final class Url {
   /// Parses the path and query of [uri]; empty segments (a trailing slash)
   /// are dropped, and dot segments are resolved, also in a relative path
   /// (`../x` is `/x`). Percent-encoding that is not UTF-8 (`%E9` from an old
-  /// Latin-1 link) is kept as typed instead of failing.
+  /// Latin-1 link) is read as Latin-1 instead of failing, and printed as
+  /// UTF-8.
   factory Url.parse(Uri uri) {
     final query = <String, List<String>>{};
     for (final pair in uri.query.split('&')) {
@@ -87,9 +90,27 @@ final class Url {
     try {
       return query ? Uri.decodeQueryComponent(text) : Uri.decodeComponent(text);
     } on FormatException {
-      return text;
+      // not UTF-8: decode each run of escapes on its own, as Latin-1 if it
+      // is not UTF-8, so the other escapes (and '+') keep their meaning
+      return (query ? text.replaceAll('+', ' ') : text).replaceAllMapped(
+        _escapes,
+        (match) {
+          final run = match[0]!;
+          final bytes = [
+            for (var i = 0; i < run.length; i += 3)
+              int.parse(run.substring(i + 1, i + 3), radix: 16),
+          ];
+          try {
+            return utf8.decode(bytes);
+          } on FormatException {
+            return latin1.decode(bytes);
+          }
+        },
+      );
     }
   }
+
+  static final _escapes = RegExp('(?:%[0-9A-Fa-f]{2})+');
 
   static Object _segment(String segment) {
     final number = int.tryParse(segment);
