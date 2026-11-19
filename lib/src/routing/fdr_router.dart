@@ -149,15 +149,22 @@ class FdrRouterDelegate<R extends NavRoute>
   @override
   Future<void> setInitialRoutePath(RouteSnapshot<R> configuration) {
     if (!_openedBeforeStart) return setNewRoutePath(configuration);
+    return _keepOpened();
+  }
+
+  /// The route restored after process death; at start, a route the app
+  /// opened before wins over it too.
+  @override
+  Future<void> setRestoredRoutePath(RouteSnapshot<R> configuration) {
+    if (_started || !_openedBeforeStart) return setNewRoutePath(configuration);
+    return _keepOpened();
+  }
+
+  Future<void> _keepOpened() {
     _started = true;
     scope.requestHistory(HistoryAction.replace);
     notifyListeners();
     return SynchronousFuture(null);
-  }
-
-  @override
-  Future<void> setRestoredRoutePath(RouteSnapshot<R> configuration) {
-    return setNewRoutePath(configuration);
   }
 
   /// URL -> state, top-down. Idempotent: an incoming route whose URL equals
