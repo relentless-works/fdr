@@ -74,7 +74,7 @@ List<NavEntry<OrdersRoute>> build() => [
     ),
 ];
 
-// in OrderListPage: a real link, cmd-click opens it in a new tab
+// in OrderListPage: on the web a real <a href>, which also opens in a new tab
 RouteLink(
   route: OrderDetail(id),
   builder: (context, open) => ListTile(title: Text('Order $id'), onTap: open),
@@ -84,11 +84,12 @@ final router = FdrRouter(root: OrdersNavigator(), fromUrl: OrdersRoute.fromUrl);
 MaterialApp.router(routerConfig: router.config);
 ```
 
-In-app pops go back in the browser history instead of adding entries. Also included:
+In-app pops go back in the browser history instead of adding entries, and a URL that does not parse shows its longest part that does with a not-found page on top. Also included:
 
 - `NestedNavigator` for child navigators with their own route type, and `TabsPage` for tabs that keep their stacks;
 - `FutureNavigator`, which loads data by id and hands the model to the child navigator, while deep links into the loaded levels keep working;
 - `DialogPage` for dialogs without a URL, and `CustomPage` for sheets or custom transitions;
+- `open(route)` on a navigator state, and `router.open(route)` from outside the tree (e.g. a push notification);
 - `watch(listenable)` and `listen(stream)` to rebuild a navigator when app state owned elsewhere changes (e.g. a bloc).
 
 See [doc/url-routing.md](doc/url-routing.md) for the design, and `example/lib/main_url_routing.dart` for a runnable demo (`flutter run -d chrome -t lib/main_url_routing.dart` in `example/`).
