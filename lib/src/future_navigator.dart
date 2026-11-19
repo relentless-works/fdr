@@ -46,9 +46,9 @@ typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
 /// What is loaded is identified by [key]: a different key is a different
 /// navigator, so its state starts over and a load still in flight for the
 /// old key is ignored. The loaded value lives as long as this navigator's
-/// state; [onDispose] releases it (also a value from a superseded load),
-/// once it is no longer shown: a reload that returns the instance on screen
-/// does not release it.
+/// state; [onDispose] releases it (also a value from a superseded load)
+/// once it is no longer shown, and each instance once: a reload that
+/// returns the instance on screen does not release it.
 ///
 /// Put it inside a [NestedNavigator] with an `onPop`, as above, so its
 /// loading and error pages can be left with back.
@@ -74,8 +74,9 @@ class FutureNavigator<T, R> extends StatefulNavigator<R> {
   final T? initialData;
 
   /// Releases a value [load] returned, once it is no longer shown: when a
-  /// reload replaces it, when this navigator is disposed, or at once for a
-  /// superseded load. Not called for [initialData].
+  /// reload replaces it, when this navigator is disposed, or for a
+  /// superseded load once the newest load completes, which may return the
+  /// same instance. Each instance once; not called for [initialData].
   final void Function(T data)? onDispose;
 
   @override
@@ -93,6 +94,14 @@ class _FutureNavigatorState<T, R>
   Object? _error;
   R? _route;
   int _generation = 0;
+  // whether the newest load is in flight: a superseded load's value waits
+  // for it, as both may return one instance (requests deduplicated)
+  bool _loading = false;
+  final List<T> _superseded = [];
+  // the loads in flight, and what was released while any was or since
+  // dispose: a load that completes later does not release it again
+  int _inFlight = 0;
+  final List<T> _released = [];
 
   @override
   void initState() {
@@ -111,11 +120,24 @@ class _FutureNavigatorState<T, R>
 
   Future<void> _load() async {
     final generation = ++_generation;
+    _loading = true;
+    _inFlight++;
+    try {
+      await _complete(generation);
+    } finally {
+      if (--_inFlight == 0 && mounted) _released.clear();
+    }
+  }
+
+  Future<void> _complete(int generation) async {
     final T data;
     try {
       data = await navigator.load();
     } on Object catch (error) {
       if (!mounted || generation != _generation) return;
+      _loading = false;
+      _superseded.forEach(_release);
+      _superseded.clear();
       // a failed reload keeps the current data on screen
       if (_hasData) rethrow;
       setState(() => _error = error);
@@ -124,20 +146,34 @@ class _FutureNavigatorState<T, R>
     // a load may return the value already shown (a cached view model):
     // that one is released when it is no longer shown, once
     if (!mounted || generation != _generation) {
-      if (!_hasData || !identical(data, _data)) {
-        navigator.onDispose?.call(data);
+      if (_hasData && identical(data, _data)) return;
+      if (mounted && _loading) {
+        _superseded.add(data);
+      } else {
+        _release(data);
       }
       return;
     }
     final previous = _hasData ? _data : null;
     final release = _loaded && !identical(previous, data);
+    _loading = false;
     setState(() {
       _data = data;
       _hasData = true;
       _loaded = true;
       _error = null;
     });
-    if (release) navigator.onDispose?.call(previous as T);
+    if (release) _release(previous as T);
+    for (final value in _superseded) {
+      if (!identical(value, data)) _release(value);
+    }
+    _superseded.clear();
+  }
+
+  void _release(T value) {
+    if (_released.any((other) => identical(other, value))) return;
+    _released.add(value);
+    navigator.onDispose?.call(value);
   }
 
   void _retry() {
@@ -174,8 +210,11 @@ class _FutureNavigatorState<T, R>
   @override
   void dispose() {
     _generation++;
-    // the children built from the data are disposed before it is released
+    // the children built from the data are disposed before it is released;
+    // a load still in flight does not keep the superseded values
     super.dispose();
-    if (_loaded) navigator.onDispose?.call(_data);
+    _superseded.forEach(_release);
+    _superseded.clear();
+    if (_loaded) _release(_data);
   }
 }
