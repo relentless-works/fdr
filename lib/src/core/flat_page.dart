@@ -51,7 +51,22 @@ final class FlatPage {
     required LocalKey defaultKey,
     bool forceCanPop = false,
   }) {
-    return _builder(key ?? defaultKey, forceCanPop || onPop != null);
+    final key = this.key ?? defaultKey;
+    final canPop = forceCanPop || onPop != null;
+    final page = _builder(key, canPop);
+    // the builder of a CustomPage is the app's, which has to pass both on
+    assert(
+      page.key == key,
+      'A CustomPage builder has to pass `key` on to its Page (got '
+      '${page.key}, expected $key): a pop of the page is found by its key, '
+      'so without it onPop does not run.',
+    );
+    assert(
+      canPop || !page.canPop,
+      'A CustomPage builder has to pass `canPop` on to its Page: the page '
+      'has no onPop, but its Page can be popped.',
+    );
+    return page;
   }
 
   FlatPage withOnPop(VoidCallback? onPop) => FlatPage(

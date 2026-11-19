@@ -174,6 +174,10 @@ typedef CustomPageBuilder = Page<Object?> Function(
 /// custom transition. Otherwise like [NavPage]: [route] gives it a URL, and
 /// [onPop] runs for back, swipe, barrier taps and `Navigator.pop`.
 ///
+/// Built on `MaterialPage` or `CupertinoPage`, a page without [onPop] still
+/// shows an `AppBar` back button, which does nothing: Flutter's page routes
+/// ignore `Page.canPop` for it. [NavPage] does not have this problem.
+///
 /// ```dart
 /// CustomPage(
 ///   onPop: () => setState(() => filtering = false),
