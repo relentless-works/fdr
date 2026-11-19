@@ -181,7 +181,7 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   /// the root down, exactly like an incoming URL. By default, the history
   /// action follows from how the page stack changes (push, or a back).
   ///
-  /// Called during an update (e.g. in [applyRoute] or [initState], to
+  /// Called during an update (in [applyRoute], [initState] or [build], to
   /// redirect), it runs once that update is done.
   void open(R route, {HistoryAction history = HistoryAction.auto}) {
     assert(mounted, 'open() called on $runtimeType after dispose()');
@@ -190,8 +190,9 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   }
 
   void _rebuild() {
-    // During the pass of another navigator, wait for it: an ancestor that
-    // rebuilt now could remove the navigator whose pass is running.
+    // During the update of another navigator (or in this one's own build),
+    // wait for it: an ancestor that rebuilt now could remove the navigator
+    // whose update is running.
     if (_routing._passes > 0 && !_pageMapper._building) {
       _routing._defer(this);
       return;
@@ -201,7 +202,15 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
 
   void _updatePages(Object? incomingRoute) {
     if (!_mounted) return;
-    _pageMapper.updatePages(build().toList(), incomingRoute: incomingRoute);
+    // The build is part of the update, also when this navigator starts it
+    // (setState, a deferred rebuild): an open() in it is queued, and a
+    // setState of another navigator waits, as in a build run by a parent.
+    _routing._run(() {
+      final entries = build().toList();
+      // removed by its own build, e.g. through the router's open()
+      if (!_mounted) return;
+      _pageMapper.updatePages(entries, incomingRoute: incomingRoute);
+    });
   }
 
   /// The pages and child navigators to show, bottom first: usually a list

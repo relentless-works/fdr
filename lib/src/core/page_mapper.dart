@@ -86,31 +86,26 @@ final class _PageMapper {
   }
 
   void _pass(VoidCallback pass) {
-    final routing = _owner._routing;
-    routing._passes++;
-    _building = true;
-    var done = false;
-    try {
-      pass();
-      while (_queued != null || _childChanged) {
-        _childChanged = false;
-        if (_queued case (final entries, final incoming)?) {
-          _queued = null;
-          _reconcile(entries, incoming);
-        } else {
-          _rebuildPages(reconcile: false);
+    _owner._routing._run(() {
+      _building = true;
+      try {
+        pass();
+        while (_queued != null || _childChanged) {
+          _childChanged = false;
+          if (_queued case (final entries, final incoming)?) {
+            _queued = null;
+            _reconcile(entries, incoming);
+          } else {
+            _rebuildPages(reconcile: false);
+          }
         }
+      } finally {
+        // set only if the pass threw: what it queued is as stale as the pass
+        _queued = null;
+        _childChanged = false;
+        _building = false;
       }
-      done = true;
-    } finally {
-      // set only if the pass threw: what it queued is as stale as the pass
-      _queued = null;
-      _childChanged = false;
-      _building = false;
-      routing._passes--;
-      if (!done && routing._passes == 0) routing._abandon();
-    }
-    if (routing._passes == 0) routing._settle();
+    });
   }
 
   void _rebuildPages({required bool reconcile}) {

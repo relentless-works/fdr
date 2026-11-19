@@ -30,10 +30,28 @@ final class RoutingScope {
   /// Set by the router: the URL of a route of the root's type, for links.
   String? Function(Object? route)? hrefOf;
 
-  // navigator passes in progress; an open() during one (a redirect in
-  // applyRoute, an open() in initState) runs once the outermost one is done
+  // navigator updates in progress; an open() during one (a redirect in
+  // applyRoute, an open() in initState or build) runs once the outermost one
+  // is done
   int _passes = 0;
   (Object?, HistoryAction)? _queuedOpen;
+
+  /// Runs [update] as one navigator update: a navigator's build together
+  /// with the pass over what it returned, or a pass alone. Once the
+  /// outermost one is done, what waited for it runs ([_settle]); if it
+  /// threw, see [_abandon].
+  void _run(VoidCallback update) {
+    _passes++;
+    var done = false;
+    try {
+      update();
+      done = true;
+    } finally {
+      _passes--;
+      if (!done && _passes == 0) _abandon();
+    }
+    if (_passes == 0) _settle();
+  }
 
   /// Opens [route] (of the root's type) through [openRoot], after the
   /// navigator updates in progress, if any.
@@ -77,7 +95,7 @@ final class RoutingScope {
     _openQueued();
   }
 
-  // The outermost pass threw. The states that wait for it still show their
+  // The outermost update threw. The states that wait for it still show their
   // changes, but an open() asked for by an update that failed is dropped:
   // it would run after the next, unrelated update.
   void _abandon() {
