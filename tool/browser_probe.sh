@@ -3,14 +3,19 @@
 # headless Chrome. The probe drives the URL routing demo through the real
 # browser history (including a page reload) and checks app state, address bar
 # and history length after every step.
+#
+# Uses the `flutter` on PATH; set FLUTTER to use another SDK, e.g.
+# `FLUTTER=~/fvm/versions/3.47.5/bin/flutter tool/browser_probe.sh` or
+# `fvm exec tool/browser_probe.sh`.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 out="$root/example/build/browser_probe"
+flutter="${FLUTTER:-flutter}"
 chrome="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 
 cd "$root/example"
-flutter build web --no-web-resources-cdn --no-wasm-dry-run \
+"$flutter" build web --no-web-resources-cdn --no-wasm-dry-run \
   -t lib/main_browser_probe.dart -o "$out" --base-href "$out/"
 
 work="$(mktemp -d)"

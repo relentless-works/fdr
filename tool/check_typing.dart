@@ -10,7 +10,8 @@ void main() {
   fixture.copySync(target.path);
   final ProcessResult result;
   try {
-    result = Process.runSync('dart', [
+    // the SDK running this script, not whichever `dart` is first on PATH
+    result = Process.runSync(Platform.resolvedExecutable, [
       'analyze',
       '--format=machine',
       'lib/typing_mistakes.dart',
