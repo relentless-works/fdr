@@ -176,12 +176,29 @@ class FdrRouterDelegate<R extends NavRoute>
           // rebuild so pages pick up the restored non-URL state
           ..update(_entries());
       }
+    } on Object catch (error, stack) {
+      // an applyRoute or build threw: the navigators stay at their last
+      // good pages, and the report below puts the URL of what they show in
+      // place of this one. Reported, not thrown: nothing in the app called
+      // this.
+      _missing = switch (_host.route) {
+        final Url url => url,
+        _ => null,
+      };
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'fdr',
+          context: ErrorDescription('while applying ${snapshot.url}'),
+        ),
+      );
     } finally {
       _applying--;
     }
     // the platform delivered this route, so it already is the browser's
     // current entry: the next report corrects it in place (canonical form,
-    // redirect) instead of adding one
+    // redirect, failed apply) instead of adding one
     scope.requestHistory(HistoryAction.replace);
     notifyListeners();
   }
