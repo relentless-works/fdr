@@ -344,6 +344,7 @@ final class _PageMapper {
     }
     assert(reconcile, 'new navigator while only re-flattening');
     final state = navigator.createState()
+      .._checkCreatedBy(navigator)
       .._navigator = navigator
       .._parent = _owner
       .._lift = lift ?? _identity;

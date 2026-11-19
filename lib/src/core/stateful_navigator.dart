@@ -211,6 +211,19 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
     _pageMapper.dispose();
   }
 
+  // createState() may return the state of another navigator with the same
+  // route type: that compiles, and setting the navigator would then fail
+  // with a bare cast error
+  void _checkCreatedBy(StatefulNavigator<Object?> navigator) {
+    if (navigator is N) return;
+    throw FlutterError(
+      '${navigator.runtimeType}.createState() returned $runtimeType, the '
+      'state of $N.\n'
+      'A navigator\'s createState() has to return a state whose first type '
+      'argument is that navigator.',
+    );
+  }
+
   bool _isFor(StatefulNavigator<Object?> item) {
     return item.runtimeType == _navigator.runtimeType &&
         item.key == _navigator.key;
