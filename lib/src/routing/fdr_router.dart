@@ -733,12 +733,12 @@ class FdrRouter<R extends NavRoute> {
     required StatefulNavigator<R> root,
     required R Function(Url url) fromUrl,
     Widget Function(Url url) notFound = _defaultNotFound,
-    BrowserHistory? browserHistory,
-    HistoryAction popFallback = HistoryAction.push,
-    RouteInformation? initialRouteInformation,
-    bool keepStateWithoutDeepLink = false,
+    this._browserHistory,
+    this._popFallback = HistoryAction.push,
+    this._initialRouteInformation,
+    this._keepStateWithoutDeepLink = false,
     Uri Function(Uri uri)? rewriteUri,
-    @visibleForTesting int? sessionId,
+    @visibleForTesting this._sessionId,
   }) : assert(
          // Dart infers R as a common supertype when root and fromUrl
          // disagree; routes of the other type would reach the root
@@ -756,32 +756,46 @@ class FdrRouter<R extends NavRoute> {
          normalize: rewriteUri == null
              ? FdrRouteInformationParser.appPath
              : (uri) => FdrRouteInformationParser.appPath(rewriteUri(uri)),
-       ) {
-    final platformRoute = initialRouteInformation == null
-        // also lets the router be created before runApp
+       );
+
+  final FdrRouterDelegate<R> delegate;
+  final FdrRouteInformationParser<R> parser;
+
+  final RouteInformation? _initialRouteInformation;
+  final BrowserHistory? _browserHistory;
+  final HistoryAction _popFallback;
+  final bool _keepStateWithoutDeepLink;
+  final int? _sessionId;
+
+  /// Created on first use, usually by [config] when the app starts. Flutter's
+  /// provider needs the widgets binding, and creating the router must not
+  /// install one: the app or a test may install its own after it (a test
+  /// binding, integration_test).
+  FdrRouteInformationProvider get provider => _provider ??= _createProvider();
+  FdrRouteInformationProvider? _provider;
+
+  FdrRouteInformationProvider _createProvider() {
+    final platformRoute = _initialRouteInformation == null
+        // also before runApp
         ? WidgetsFlutterBinding.ensureInitialized()
               .platformDispatcher
               .defaultRouteName
         : null;
     // "/" is what the platform starts with when no route was requested
     delegate._keepStateAtStart =
-        keepStateWithoutDeepLink &&
+        _keepStateWithoutDeepLink &&
         !kIsWeb &&
         platformRoute == Navigator.defaultRouteName;
-    provider = FdrRouteInformationProvider(
+    return FdrRouteInformationProvider(
       initialRouteInformation:
-          initialRouteInformation ??
+          _initialRouteInformation ??
           RouteInformation(uri: Uri.parse(platformRoute!)),
       scope: delegate.scope,
-      browserHistory: browserHistory ?? BrowserHistory.platform(),
-      popFallback: popFallback,
-      sessionId: sessionId,
+      browserHistory: _browserHistory ?? BrowserHistory.platform(),
+      popFallback: _popFallback,
+      sessionId: _sessionId,
     );
   }
-
-  final FdrRouterDelegate<R> delegate;
-  final FdrRouteInformationParser<R> parser;
-  late final FdrRouteInformationProvider provider;
 
   RouterConfig<RouteSnapshot<R>> get config => RouterConfig(
     routeInformationProvider: provider,
@@ -802,7 +816,7 @@ class FdrRouter<R extends NavRoute> {
   /// for a router that is not created once for the app's lifetime.
   void dispose() {
     delegate.dispose();
-    provider.dispose();
+    _provider?.dispose();
   }
 
   static Widget _defaultNotFound(Url url) => _NotFoundPage(url: url);
