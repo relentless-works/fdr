@@ -15,7 +15,7 @@ jobs:
   test:
     name: Test package
 
-    runs-on: macos-14
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v1
@@ -58,7 +58,7 @@ jobs:
   browser:
     name: Browser history in headless Chrome
 
-    runs-on: macos-14
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v1
