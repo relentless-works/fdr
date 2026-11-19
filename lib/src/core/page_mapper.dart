@@ -415,7 +415,23 @@ final class _PageMapper {
       };
       final own = entry['s'];
       if (own != null || state.historyState != null) {
-        state.restoreHistoryState(own);
+        // the entry may be one an earlier build of the app wrote, with
+        // another shape: this state keeps what it has, the others are
+        // still restored
+        try {
+          state.restoreHistoryState(own);
+        } on Object catch (error, stack) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stack,
+              library: 'fdr',
+              context: ErrorDescription(
+                'while restoring the history state of ${state.runtimeType}',
+              ),
+            ),
+          );
+        }
       }
       state._pageMapper.restoreHistoryState(entry['c']);
     }

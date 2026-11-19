@@ -99,6 +99,11 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   /// Restores what [historyState] returned when the entry was written, on
   /// browser back and forward, reloads and state restoration. Null, when it
   /// returned null then but returns a state now, stands for the default.
+  ///
+  /// An entry can outlive the build of the app that wrote it (a web tab
+  /// that stays open over a deployment), so [state] may have an earlier
+  /// shape. An error thrown here is reported, and this navigator keeps the
+  /// state it has.
   void restoreHistoryState(Object? state) {}
 
   /// Tag under which [historyState] is stored; override with a stable string

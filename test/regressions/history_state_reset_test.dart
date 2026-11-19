@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fdr/fdr.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -183,5 +185,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(router.currentUrl, '/b');
     expect(RootState.latest.scroll, 5);
+  });
+
+  testWidgets('a navigator that cannot read its state does not keep the '
+      'others from theirs', (tester) async {
+    final router = await start(tester);
+    RootState.latest.setState(() => RootState.latest.scroll = 5);
+    counter.setState(() => counter.count = 3);
+    await tester.pumpAndSettle();
+    router.open(const RB());
+    await tester.pumpAndSettle();
+    counter.setState(() => counter.count = 9);
+    await tester.pumpAndSettle();
+
+    // the entry as an earlier build of the app wrote it
+    final entry = jsonDecode(
+      jsonEncode(stored(1)).replaceFirst('"scroll":5', '"scroll":"x"'),
+    );
+    await deliver(tester, '/', entry);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isA<TypeError>());
+    expect(router.currentUrl, '/');
+    expect(RootState.latest.scroll, 5);
+    expect(counter.count, 3);
+    expect(find.text('count 3', skipOffstage: false), findsOneWidget);
   });
 }
