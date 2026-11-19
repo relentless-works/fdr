@@ -257,6 +257,26 @@ void main() {
     expect(api.releasedOrders, ['Order #42 v1']);
   });
 
+  testWidgets('a superseded reload completes normally, also when it fails', (
+    tester,
+  ) async {
+    await _pumpShop(tester, '/orders/42');
+    api.completeOrder(42);
+    await tester.pumpAndSettle();
+
+    final reload = OrderNavigatorState.latest!.navigator.reload;
+    final first = reload();
+    final second = reload();
+    final [_, earlier, later] = api.orderLoads[42]!;
+    earlier.completeError(StateError('offline'));
+    await expectLater(first, completes);
+    later.complete(const Order(42, version: 2));
+    await expectLater(second, completes);
+    await tester.pumpAndSettle();
+    expect(find.text('Order #42 v2'), findsOneWidget);
+    expect(find.textContaining('offline'), findsNothing);
+  });
+
   testWidgets('of two overlapping reloads, the later one is shown', (
     tester,
   ) async {

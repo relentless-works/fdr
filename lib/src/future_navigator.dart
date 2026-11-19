@@ -6,7 +6,7 @@ import 'core/core.dart';
 
 /// Builds the navigator that shows the loaded [data]. [reload] loads again
 /// while the current data stays on screen; it completes with the load's
-/// error if that fails.
+/// error if that fails, and normally if a later reload superseded it.
 typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
   T data,
   Future<void> Function() reload,
@@ -20,7 +20,10 @@ typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
 /// NestedNavigator(
 ///   at: (route) => OrderAt(id, route),
 ///   route: orderRoute,
-///   onPop: () => setState(() => id = null),
+///   onPop: () => setState(() {
+///     id = null;
+///     orderRoute = null;
+///   }),
 ///   child: FutureNavigator(
 ///     key: ValueKey(id),
 ///     load: () => api.order(id),
