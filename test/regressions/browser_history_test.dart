@@ -340,7 +340,9 @@ void main() {
       expect(s.browser.urls, ['/orders/42', '/orders']);
       expect(s.router.provider.pendingBacks, 0);
 
-      // browser back shows the order again
+      // browser back shows the order again, once it can no longer be the
+      // app's back carried out late (late_back_test.dart)
+      await tester.pump(lost);
       await s.traverse(-1);
       expect(s.router.currentUrl, '/orders/42');
       expect(find.text('Order 42'), findsOneWidget);

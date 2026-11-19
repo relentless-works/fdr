@@ -499,8 +499,9 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     }
   }
 
-  // serials of the entries that pending traversals will deliver
-  final List<int> _awaitedBacks = [];
+  // the entries that pending traversals will deliver, by serial, and how
+  // far each traversal goes
+  final List<(int serial, int delta)> _awaitedBacks = [];
 
   // the latest report made while a back was in flight, sent once it arrived
   _Report? _deferred;
@@ -513,6 +514,14 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
 
   // the latest report that became a traversal: reported if that gets lost
   _Report? _traversing;
+
+  // A traversal given up as lost, which the browser may only be late with:
+  // for another [backTimeout], the entry it delivers is still recognised.
+  // That is the entry asked for, or, in a browser that applies the delta
+  // when it carries the traversal out, the entry that far from the current
+  // one. A traversal by the user to one of these is taken for it.
+  (int serial, int delta)? _abandoned;
+  Timer? _abandonTimer;
 
   /// The browser entries created in this session (URL strings), for tests.
   List<String> get shadowHistory =>
@@ -552,7 +561,7 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
       // state now is that entry's.
       _deferred = null;
       _index -= steps;
-      _awaitedBacks.add(_serialOf(_entries[_index]));
+      _awaitedBacks.add((_serialOf(_entries[_index]), -steps));
       _traversing = report;
       _awaitBacks();
       browserHistory.go(-steps);
@@ -680,9 +689,11 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
   // the entry does not exist, which happens once the shadow and the real
   // history disagree. Reporting must not wait for it forever. The shadow
   // continues at the entry the browser is on, if it knows that one, and
-  // the app's URL is reported there without another traversal.
+  // the app's URL is reported there without another traversal. The browser
+  // may still carry the traversal out after that: see [_abandoned].
   void _onBacksLost() {
     final (info, type, action) = _deferred ?? _traversing!;
+    final given = _awaitedBacks.first;
     _deferred = null;
     _backsDone();
     final state = browserHistory.currentState;
@@ -693,7 +704,8 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
         : -1;
     if (_index < 0) _entries.clear();
     // the traversal may have happened and only its delivery got lost
-    final arrived = _index >= 0 && _entries[_index].uri == info.uri;
+    final known = _index >= 0;
+    final arrived = known && _entries[_index].uri == info.uri;
     _report((
       info,
       type,
@@ -703,6 +715,52 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
           ? HistoryAction.replace
           : popFallback,
     ));
+    _forgetAbandoned();
+    if (known && !arrived) {
+      _abandoned = given;
+      _abandonTimer = Timer(backTimeout, _forgetAbandoned);
+    }
+  }
+
+  void _forgetAbandoned() {
+    _abandonTimer?.cancel();
+    _abandonTimer = null;
+    _abandoned = null;
+  }
+
+  // whether the entry delivered is the one of the traversal given up
+  bool _isLate(Object? serial) {
+    final abandoned = _abandoned;
+    if (abandoned == null || serial is! num || _index < 0) return false;
+    final (asked, delta) = abandoned;
+    if (serial == asked) return true;
+    // the browser's position is not known while it has more to carry out
+    if (_awaitedBacks.isNotEmpty) return false;
+    final at = _index + delta;
+    return at >= 0 && at < _entries.length && _serialOf(_entries[at]) == serial;
+  }
+
+  // The browser carried out a traversal that was given up. The app has
+  // reported the state it is in since, into an entry of its own: it keeps
+  // that state, and the browser goes back to that entry.
+  void _undoLate(num serial, Uri uri) {
+    _forgetAbandoned();
+    // the app asked for another traversal since, which follows this one
+    if (_awaitedBacks.isNotEmpty) return;
+    final shown = _entries[_index];
+    _moveTo(serial, uri);
+    final delta = _entries.indexOf(shown) - _index;
+    if (delta == 0) return;
+    _index += delta;
+    _awaitedBacks.add((_serialOf(shown), delta));
+    // if this one gets lost, the app's state is written where the browser is
+    _traversing = (
+      RouteInformation(uri: shown.uri, state: (shown.state! as Map)['h']),
+      RouteInformationReportingType.neglect,
+      HistoryAction.replace,
+    );
+    _awaitBacks();
+    browserHistory.go(delta);
   }
 
   // nothing is delivered or reported while no Router listens
@@ -718,12 +776,14 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     if (!hasListeners) {
       _backTimer?.cancel();
       _backTimer = null;
+      _forgetAbandoned();
     }
   }
 
   @override
   void dispose() {
     _backTimer?.cancel();
+    _abandonTimer?.cancel();
     super.dispose();
   }
 
@@ -733,9 +793,16 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     final own = state is Map && state['fdr'] == 1 && state['s'] == _session;
     final serial = own ? state['i'] : null;
 
+    if (_isLate(serial)) {
+      _undoLate(serial as num, routeInformation.uri);
+      return SynchronousFuture(true);
+    }
+    // the browser carries traversals out in the order they were asked for
+    _forgetAbandoned();
+
     final awaiting = _awaitedBacks.isNotEmpty;
     if (awaiting) {
-      if (serial == _awaitedBacks.first) {
+      if (serial == _awaitedBacks.first.$1) {
         _awaitedBacks.removeAt(0);
         _moveTo(serial, routeInformation.uri);
         // the app popped in-app and already shows this entry; an entry of
