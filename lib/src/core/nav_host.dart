@@ -25,8 +25,13 @@ final class NavHost<R> {
   void restoreHistoryState(Object? state) => _mapper.restoreHistoryState(state);
 
   void update(List<NavEntry<Object?>> entries, {Object? incomingRoute}) {
+    // after dispose (a late open() or platform route), nothing would
+    // dispose the navigator states an update creates
+    if (_disposed) return;
     _mapper.updatePages(entries, incomingRoute: incomingRoute);
   }
+
+  bool _disposed = false;
 
   String? routeKey(Object route) => _target._routeKeyOf(route);
 
@@ -81,5 +86,8 @@ final class NavHost<R> {
     );
   }
 
-  void dispose() => _mapper.dispose();
+  void dispose() {
+    _disposed = true;
+    _mapper.dispose();
+  }
 }
