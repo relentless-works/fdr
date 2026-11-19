@@ -53,7 +53,8 @@ class NotFound implements Exception {
 /// segment that is an integer in canonical form (`42`, not `042` or `+42`)
 /// and within ±(2^53 - 1), which every platform represents exactly, is an
 /// [int], every other segment a [String]. So patterns can read
-/// `[final int id, ...]`, and each page has exactly one spelling.
+/// `[final int id, ...]`, and each page has exactly one spelling. A `toUrl`
+/// prints only ints and Strings too: an enum or a bool as a String.
 ///
 /// Query parameters are shared by all levels: every level reads [query], and
 /// each one prints only the names it owns.
@@ -179,6 +180,11 @@ final class Url {
 
   /// The path without the query, e.g. for page identity.
   String get path {
+    assert(
+      segments.every((s) => s is int || s is String),
+      'Url $segments has a segment that is neither an int nor a String, '
+      'which does not parse back; print it as a String first',
+    );
     assert(
       segments.every((s) => s != '' && s != '.' && s != '..'),
       'Url $segments has an empty or dot segment, which does not parse back',

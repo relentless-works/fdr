@@ -104,6 +104,14 @@ void main() {
       expect(_parse('/a/1'), isNot(const Url(['a', '1'])));
     });
 
+    test('a segment that is neither an int nor a String is an error', () {
+      // they would not parse back, and a double prints differently per
+      // platform
+      for (final segment in <Object>[42.5, true, TextDirection.ltr]) {
+        expect(() => Url([segment]).toString(), throwsAssertionError);
+      }
+    });
+
     test('scheme, authority and fragment are not part of a Url', () {
       expect('${_parse('https://shop.example/x?a=1#frag')}', '/x?a=1');
       expect('${_parse('/x#frag?a=1')}', '/x');
