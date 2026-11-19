@@ -35,10 +35,11 @@ class _AppState extends StatefulNavigatorState<AppNavigator, Never> {
 }
 
 void main() {
-  testWidgets('Android back on the second page of a DeclarativeNavigator', (
-    tester,
-  ) async {
-    final platformCalls = <MethodCall>[];
+  late List<MethodCall> platformCalls;
+
+  setUp(() => platformCalls = []);
+
+  Future<void> pump(WidgetTester tester, Widget app) async {
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
       (call) async {
@@ -46,19 +47,80 @@ void main() {
         return null;
       },
     );
-    await tester.pumpWidget(
-      const MaterialApp(home: DeclarativeNavigator(navigator: AppNavigator())),
-    );
+    await tester.pumpWidget(app);
+  }
+
+  Future<void> open(WidgetTester tester) async {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('Details'), findsOneWidget);
+  }
 
+  Future<void> back(WidgetTester tester) async {
     await tester.binding.handlePopRoute(); // Android system back
     await tester.pumpAndSettle();
-    expect(find.text('Details'), findsNothing);
-    expect(
-      platformCalls.where((c) => c.method == 'SystemNavigator.pop'),
-      isEmpty,
+  }
+
+  int exits() =>
+      platformCalls.where((c) => c.method == 'SystemNavigator.pop').length;
+
+  testWidgets('Android back on the second page of a DeclarativeNavigator', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      const MaterialApp(home: DeclarativeNavigator(navigator: AppNavigator())),
     );
+    await open(tester);
+    await back(tester);
+    expect(find.text('Details'), findsNothing);
+    expect(exits(), 0);
+  });
+
+  // no enclosing route for the pop handler to register with
+  testWidgets('Android back in a DeclarativeNavigator in MaterialApp.builder', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      MaterialApp(
+        builder: (_, _) =>
+            const DeclarativeNavigator(navigator: AppNavigator()),
+      ),
+    );
+    await open(tester);
+    await back(tester);
+    expect(find.text('Details'), findsNothing);
+    expect(exits(), 0);
+    // on the first page, back leaves the app
+    await back(tester);
+    expect(find.text('Home'), findsOneWidget);
+    expect(exits(), 1);
+  });
+
+  testWidgets('Android back in a DeclarativeNavigator without an app', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(),
+          child: Localizations(
+            locale: const Locale('en'),
+            delegates: const [
+              DefaultMaterialLocalizations.delegate,
+              DefaultWidgetsLocalizations.delegate,
+            ],
+            child: const DeclarativeNavigator(navigator: AppNavigator()),
+          ),
+        ),
+      ),
+    );
+    await open(tester);
+    await back(tester);
+    expect(find.text('Details'), findsNothing);
+    expect(exits(), 0);
   });
 }

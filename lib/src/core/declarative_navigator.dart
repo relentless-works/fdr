@@ -15,9 +15,11 @@ class DeclarativeNavigator extends StatefulWidget {
   State<DeclarativeNavigator> createState() => _DeclarativeNavigatorState();
 }
 
-class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
+class _DeclarativeNavigatorState extends State<DeclarativeNavigator>
+    with WidgetsBindingObserver {
   late final NavHost<Never> _host;
   final _navigatorKey = GlobalKey<NavigatorState>();
+  var _observing = false;
 
   @override
   void initState() {
@@ -34,7 +36,24 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _host.linkTo(context);
+    // Outside a route (MaterialApp.builder, directly under runApp) the pop
+    // handler in build has no route to register with, so system back is
+    // taken from the binding. Of the route only its existence is read,
+    // which `opaqueOf` does without a rebuild for each change of the route.
+    final observe = ModalRoute.opaqueOf(context) == null;
+    if (observe != _observing) {
+      _observing = observe;
+      if (observe) {
+        WidgetsBinding.instance.addObserver(this);
+      } else {
+        WidgetsBinding.instance.removeObserver(this);
+      }
+    }
   }
+
+  @override
+  Future<bool> didPopRoute() async =>
+      await _navigatorKey.currentState?.maybePop() ?? false;
 
   @override
   void reassemble() {
@@ -61,6 +80,7 @@ class _DeclarativeNavigatorState extends State<DeclarativeNavigator> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _host.dispose();
     super.dispose();
   }
