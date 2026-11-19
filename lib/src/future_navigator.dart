@@ -5,8 +5,9 @@ import 'package:flutter/widgets.dart';
 import 'core/core.dart';
 
 /// Builds the navigator that shows the loaded [data]. [reload] loads again
-/// while the current data stays on screen; it completes with the load's
-/// error if that fails, and normally if a later reload superseded it.
+/// while the current data stays on screen; it completes with the error if
+/// the load fails or the child built from the new data throws, which keeps
+/// the current data, and normally if a later reload superseded it.
 typedef FutureChildBuilder<T, R> = StatefulNavigator<R> Function(
   T data,
   Future<void> Function() reload,
@@ -157,20 +158,32 @@ class _FutureNavigatorState<T, R>
       }
       return;
     }
-    final previous = _hasData ? _data : null;
-    final release = _loaded && !identical(previous, data);
+    final hadData = _hasData;
+    final previous = hadData ? _data : null;
+    final loaded = _loaded;
     _loading = false;
-    setState(() {
-      _data = data;
-      _hasData = true;
-      _loaded = true;
-      _error = null;
-    });
-    if (release) _release(previous as T);
-    for (final value in _superseded) {
-      if (!identical(value, data)) _release(value);
+    try {
+      setState(() {
+        _data = data;
+        _hasData = true;
+        _loaded = true;
+        _error = null;
+      });
+    } on Object {
+      // the child built from the new data threw, so the navigators still
+      // show the data before it: a failed reload, which keeps that data
+      if (hadData && mounted) {
+        _data = previous as T;
+        _loaded = loaded;
+      }
+      rethrow;
+    } finally {
+      // the loaded values other than the one kept are no longer shown
+      for (final value in [if (loaded) previous as T, data, ..._superseded]) {
+        if (!identical(value, _data)) _release(value);
+      }
+      _superseded.clear();
     }
-    _superseded.clear();
   }
 
   void _release(T value) {

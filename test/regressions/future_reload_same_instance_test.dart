@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 class Vm extends ChangeNotifier {
   int value = 0;
+  // the child built from it throws in build
+  bool broken = false;
   void bump() {
     value++;
     notifyListeners();
@@ -30,9 +32,10 @@ class OrderNavState extends StatefulNavigatorState<OrderNav, Never> {
   }
 
   @override
-  List<NavEntry<Never>> build() => [
-    NavPage(child: Text('order ${navigator.vm.value}')),
-  ];
+  List<NavEntry<Never>> build() {
+    if (navigator.vm.broken) throw StateError('build boom');
+    return [NavPage(child: Text('order ${navigator.vm.value}'))];
+  }
 }
 
 class Root extends StatefulNavigator<Never> {
@@ -270,5 +273,35 @@ void main() {
     await pending;
     await tester.pumpAndSettle();
     expect(released, [vm]);
+  });
+
+  testWidgets('a reload whose child build throws keeps the value shown and '
+      'releases the new one', (tester) async {
+    final x = Vm();
+    final y = Vm()..broken = true;
+    final released = <Vm>[];
+    late Future<void> Function() reload;
+    var next = x;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DeclarativeNavigator(
+          navigator: Root(() async => next, released, (r) => reload = r),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('order 0'), findsOneWidget);
+
+    // the navigators keep the child built from x: x is still shown
+    next = y;
+    await expectLater(reload(), throwsStateError);
+    await tester.pumpAndSettle();
+    expect(find.text('order 0'), findsOneWidget);
+    expect(released, [y]);
+
+    final root = RootState.latest;
+    root.setState(() => root.shown = false);
+    await tester.pumpAndSettle();
+    expect(released, [y, x], reason: 'x was never released');
   });
 }
