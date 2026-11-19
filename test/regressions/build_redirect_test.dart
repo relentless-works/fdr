@@ -18,6 +18,8 @@ class RootState extends StatefulNavigatorState<Root, RR> {
   RR shown = const RA();
   // opened by the next build, which shows what the one before did
   RR? kick;
+  // whether C redirects to B
+  bool guard = true;
 
   @override
   void initState() {
@@ -36,7 +38,9 @@ class RootState extends StatefulNavigatorState<Root, RR> {
       kick = null;
       open(to, history: HistoryAction.replace);
     }
-    if (shown is RC) open(const RB(), history: HistoryAction.replace);
+    if (shown is RC && guard) {
+      open(const RB(), history: HistoryAction.replace);
+    }
     if (shown is RB && navigator.loop) {
       open(const RC(), history: HistoryAction.replace);
     }
@@ -198,6 +202,26 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(router.currentUrl, '/');
     expect(router.provider.shadowHistory, ['/', '/']);
+  });
+
+  testWidgets('a redirect with replace in a build that only closed a page '
+      'replaces the entry being left', (tester) async {
+    final router = await start(tester, const Root());
+    router.open(const RB());
+    await tester.pumpAndSettle();
+    expect(router.provider.shadowHistory, ['/', '/b']);
+
+    // the setState closes B, and its build opens C in its place
+    final root = RootState.latest..guard = false;
+    root.setState(() {
+      root.shown = const RA();
+      root.kick = const RC();
+    });
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(router.currentUrl, '/c');
+    // not a third entry after the one of the page that was closed
+    expect(router.provider.shadowHistory, ['/', '/c']);
   });
 
   testWidgets('a navigator can redirect in its build to a route that '

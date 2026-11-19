@@ -251,8 +251,9 @@ class FdrRouterDelegate<R extends NavRoute>
     // likewise a redirect from an update that showed something new (a
     // setState, an open() in the initState of a navigator it created): what
     // it showed was never reported either, so the replace would hit the
-    // entry the user came from
-    final redirect = nested || (scope.redirecting && _unreported);
+    // entry the user came from. An update that only closed pages showed
+    // nothing new: there the replace is for the entry being left
+    final redirect = nested || (scope.redirecting && _unreportedPage);
     _applying++;
     try {
       // a redirect of the nearest page of a URL that does not parse keeps
@@ -270,9 +271,14 @@ class FdrRouterDelegate<R extends NavRoute>
 
   List<LocalKey> _routedStack() => _routedKeys(_host.keyed());
 
-  // whether the navigators show something else than the last report
-  bool get _unreported =>
-      currentUrl != _reportedUrl || !listEquals(_routedStack(), _reportedStack);
+  // whether the navigators show a page or a URL of the same pages that was
+  // not in the last report; pages that were only closed do not count
+  bool get _unreportedPage {
+    final now = _routedStack();
+    if (listEquals(now, _reportedStack)) return currentUrl != _reportedUrl;
+    return now.length >= _reportedStack.length ||
+        !listEquals(now, _reportedStack.sublist(0, now.length));
+  }
 
   // routed page keys, looking into the active tab of tabs pages
   static List<LocalKey> _routedKeys(List<KeyedPage> pages) => [
