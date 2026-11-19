@@ -38,35 +38,53 @@ class RouteLink extends StatelessWidget {
       uri: Uri.parse(externalHref(href)),
       builder: (context, followLink) => builder(context, () {
         if (!kIsWeb || followLink == null) return open();
-        switch (_modifier) {
+        final keyboard = HardwareKeyboard.instance;
+        final tap = linkTap(
+          defaultTargetPlatform,
+          meta: keyboard.isMetaPressed,
+          control: keyboard.isControlPressed,
+          shift: keyboard.isShiftPressed,
+        );
+        switch (tap) {
           // the browser opens a new tab or window, if Link tells it that the
           // tap followed the link
-          case _Modifier.newTab:
+          case LinkTap.newTab:
             unawaited(followLink());
-          // ctrl-click on macOS is a right click: the context menu
-          case _Modifier.contextMenu:
+          case LinkTap.contextMenu:
             return;
-          case null:
+          case LinkTap.open:
             open();
         }
       }),
     );
   }
-
-  static _Modifier? get _modifier {
-    final keyboard = HardwareKeyboard.instance;
-    if (keyboard.isControlPressed &&
-        defaultTargetPlatform == TargetPlatform.macOS) {
-      return _Modifier.contextMenu;
-    }
-    if (keyboard.isMetaPressed ||
-        keyboard.isControlPressed ||
-        keyboard.isShiftPressed) {
-      return _Modifier.newTab;
-    }
-    // alt-click would download the page: opened in the app instead
-    return null;
-  }
 }
 
-enum _Modifier { newTab, contextMenu }
+/// What a tap on a [RouteLink] does on the web.
+@visibleForTesting
+enum LinkTap {
+  /// Opens the route in the app.
+  open,
+
+  /// Leaves the click to the browser, which opens a new tab or window.
+  newTab,
+
+  /// Nothing: the click shows the browser's context menu.
+  contextMenu,
+}
+
+/// What a tap on a [RouteLink] does on the web on [platform], with these
+/// modifier keys held.
+@visibleForTesting
+LinkTap linkTap(
+  TargetPlatform platform, {
+  bool meta = false,
+  bool control = false,
+  bool shift = false,
+}) {
+  // ctrl-click on macOS is a right click
+  if (control && platform == TargetPlatform.macOS) return LinkTap.contextMenu;
+  if (meta || control || shift) return LinkTap.newTab;
+  // alt-click would download the page: opened in the app instead
+  return LinkTap.open;
+}
