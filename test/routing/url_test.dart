@@ -201,7 +201,8 @@ void main() {
       expect(_parse('/a/1?x=1&y=2&y=3&z='), isNot(url));
       expect(_parse('/a/2?x=1&y=2&y=3'), isNot(url));
       expect(_parse('/a/1'), const Url(['a', 1]));
-      expect(_parse('/a/1'), isNot(const Url(['a', '1'])));
+      // equal when they print the same URL
+      expect(_parse('/a/1'), const Url(['a', '1']));
     });
 
     test('a segment that is neither an int nor a String is an error', () {

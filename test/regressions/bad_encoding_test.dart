@@ -43,10 +43,10 @@ void main() {
     return router;
   }
 
-  test('percent-encoding that is not UTF-8 is kept as typed', () {
+  test('percent-encoding that is not UTF-8 is read as Latin-1', () {
     final url = Url.parse(Uri.parse('/b/caf%E9?q=%E9'));
-    expect(url.segments, ['b', 'caf%E9']);
-    expect(url['q'], '%E9');
+    expect(url.segments, ['b', 'café']);
+    expect(url['q'], 'é');
   });
 
   testWidgets('a deep link with Latin-1 percent-encoding', (tester) async {
@@ -55,19 +55,15 @@ void main() {
     // the nearest page that exists, with the not-found page on top
     expect(find.text('B', skipOffstage: false), findsOneWidget);
     expect(find.textContaining('No page'), findsOneWidget);
-    expect(missing.segments, ['b', 'caf%E9']);
+    expect(missing.segments, ['b', 'café']);
   });
 
-  testWidgets(
-    'the address bar keeps a deep link with Latin-1 percent-encoding',
-    (tester) async {
-      final router = await start(tester, '/b/caf%E9');
-      expect(router.currentUrl, '/b/caf%E9');
-      expect(router.provider.value.uri.toString(), '/b/caf%E9');
-    },
-    // Known bug: the URL that did not parse is printed again from its
-    // segments, which encodes the % that was kept: the address bar shows
-    // /b/caf%25E9, not the URL as typed (doc section 6).
-    skip: true,
-  );
+  testWidgets('the address bar shows a Latin-1 deep link re-encoded as UTF-8', (
+    tester,
+  ) async {
+    final router = await start(tester, '/b/caf%E9');
+    // the same text, not /b/caf%25E9
+    expect(router.currentUrl, '/b/caf%C3%A9');
+    expect(router.provider.value.uri.toString(), '/b/caf%C3%A9');
+  });
 }
