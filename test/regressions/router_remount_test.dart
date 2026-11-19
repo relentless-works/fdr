@@ -173,7 +173,7 @@ void main() {
     final router = start(tester);
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pumpAndSettle();
-    router.delegate.setNewRoutePath(
+    await router.delegate.setNewRoutePath(
       const RouteSnapshot(RA(), historyState: {...tree, 'fdr': 1, 'x': 2}),
     );
     await tester.pumpAndSettle();
