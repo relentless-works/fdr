@@ -89,5 +89,43 @@ void main() {
       expect(s.browser.deltas, [-1, -1]);
       s.expectAt('/orders', entries: three, at: 0);
     });
+
+    testWidgets('opening a page and closing it again adds no entry', (
+      tester,
+    ) async {
+      final s = BrowserSession(tester, '/orders');
+      await s.load();
+      await s.tap(open42);
+      const two = ['/orders', '/orders/42'];
+      s.expectAt('/orders/42', entries: two);
+
+      await s.tapInFlight(back);
+      await s.tapInFlight(open42);
+      expect(s.router.currentUrl, '/orders/42');
+      await s.tapInFlight(back);
+      expect(s.router.currentUrl, '/orders');
+
+      await s.arrive();
+      expect(s.browser.deltas, [-1]);
+      expect(s.browser.reports.where((r) => !r.$2), [('/orders/42', false)]);
+      s.expectAt('/orders', entries: two, at: 0);
+
+      // forward still leads to the order
+      await s.traverse(1);
+      s.expectAt('/orders/42', entries: two);
+    });
+
+    testWidgets('a push that stays is still reported after the back', (
+      tester,
+    ) async {
+      final s = await atItem(tester);
+      await s.tapInFlight(back);
+      // item 3 again, then the list, then order 42: not back at the entry
+      await s.tapInFlight(item3);
+      await s.tapInFlight(back);
+      await s.tapInFlight(item3);
+      await s.arrive();
+      s.expectAt('/orders/42/items/3', entries: three);
+    });
   });
 }

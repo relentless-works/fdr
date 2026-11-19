@@ -500,6 +500,17 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     }
 
     if (_awaitedBacks.isNotEmpty) {
+      // a pop back to the entry the traversal leads to: together, the
+      // deferred changes add no entry (a page was opened and closed again)
+      if (action == HistoryAction.pop &&
+          url == _entries[_index].uri.toString()) {
+        _deferred = (
+          routeInformation,
+          RouteInformationReportingType.neglect,
+          HistoryAction.replace,
+        );
+        return;
+      }
       final previous = _deferred;
       final pushes =
           action == HistoryAction.push ||
