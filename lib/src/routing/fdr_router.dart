@@ -46,6 +46,7 @@ class FdrRouterDelegate<R extends NavRoute>
       ..pages.addListener(_onPagesChanged)
       ..update(_entries());
     _reportedStack = _routedStack();
+    _reportedUrl = currentUrl;
   }
 
   final StatefulNavigator<R> root;
@@ -67,6 +68,7 @@ class FdrRouterDelegate<R extends NavRoute>
   bool _keepStateAtStart = false;
 
   List<LocalKey> _reportedStack = const [];
+  String? _reportedUrl;
 
   List<NavEntry<Object?>> _entries() => [
     root,
@@ -246,6 +248,11 @@ class FdrRouterDelegate<R extends NavRoute>
     // its replace is meant for that route, which was never reported, so
     // the history action of the navigation in progress stands
     final nested = _applying > 0;
+    // likewise a redirect from an update that showed something new (a
+    // setState, an open() in the initState of a navigator it created): what
+    // it showed was never reported either, so the replace would hit the
+    // entry the user came from
+    final redirect = nested || (scope.redirecting && _unreported);
     _applying++;
     try {
       // a redirect of the nearest page of a URL that does not parse keeps
@@ -255,13 +262,17 @@ class FdrRouterDelegate<R extends NavRoute>
     } finally {
       _applying--;
     }
-    if (!nested || history != HistoryAction.replace) {
+    if (!redirect || history != HistoryAction.replace) {
       scope.requestHistory(history);
     }
     notifyListeners();
   }
 
   List<LocalKey> _routedStack() => _routedKeys(_host.keyed());
+
+  // whether the navigators show something else than the last report
+  bool get _unreported =>
+      currentUrl != _reportedUrl || !listEquals(_routedStack(), _reportedStack);
 
   // routed page keys, looking into the active tab of tabs pages
   static List<LocalKey> _routedKeys(List<KeyedPage> pages) => [
@@ -277,6 +288,7 @@ class FdrRouterDelegate<R extends NavRoute>
     final before = _reportedStack;
     final now = _routedStack();
     _reportedStack = now;
+    _reportedUrl = currentUrl;
     if (now.length < before.length &&
         listEquals(now, before.sublist(0, now.length))) {
       scope.popDepth = before.length - now.length;

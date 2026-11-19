@@ -16,6 +16,8 @@ class RootState extends StatefulNavigatorState<Root, RR> {
   static late RootState latest;
   static final builds = <String>[];
   RR shown = const RA();
+  // opened by the next build, which shows what the one before did
+  RR? kick;
 
   @override
   void initState() {
@@ -30,6 +32,10 @@ class RootState extends StatefulNavigatorState<Root, RR> {
   List<NavEntry<RR>> build() {
     final shown = this.shown;
     builds.add('${shown.runtimeType}');
+    if (kick case final to?) {
+      kick = null;
+      open(to, history: HistoryAction.replace);
+    }
     if (shown is RC) open(const RB(), history: HistoryAction.replace);
     if (shown is RB && navigator.loop) {
       open(const RC(), history: HistoryAction.replace);
@@ -143,6 +149,8 @@ void expectRedirectedToB(WidgetTester tester, FdrRouter<RR> router) {
   expect(router.currentUrl, '/b');
   expect(find.text('B'), findsOneWidget);
   expect(find.text('C'), findsNothing);
+  // the replace is for C, which was never reported: A keeps its entry
+  expect(router.provider.shadowHistory, ['/', '/b']);
 }
 
 void main() {
@@ -174,6 +182,22 @@ void main() {
     side.setState(() => side.poke = true);
     await tester.pumpAndSettle();
     expectRedirectedToB(tester, router);
+  });
+
+  testWidgets('a redirect with replace in a build that shows nothing new '
+      'replaces the current entry', (tester) async {
+    final router = await start(tester, const Root());
+    router.open(const RB());
+    await tester.pumpAndSettle();
+    expect(router.provider.shadowHistory, ['/', '/b']);
+
+    // B is the reported entry, and the build that redirects still shows it
+    final root = RootState.latest;
+    root.setState(() => root.kick = const RA());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(router.currentUrl, '/');
+    expect(router.provider.shadowHistory, ['/', '/']);
   });
 
   testWidgets('a navigator can redirect in its build to a route that '
