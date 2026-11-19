@@ -96,14 +96,16 @@ Future<void> movesWithItsTabs(WidgetTester tester, Root root) async {
 }
 
 void main() {
-  testWidgets('a keyed TabsPage keeps its tabs when a page goes in below', (
-    tester,
-  ) => movesWithItsTabs(tester, const Root(tabsKey: ValueKey('tabs'))));
+  testWidgets(
+    'a keyed TabsPage keeps its tabs when a page goes in below',
+    (tester) => movesWithItsTabs(tester, const Root(tabsKey: ValueKey('tabs'))),
+  );
 
   // its page key is the same, so the tabs stay the same too
-  testWidgets('an unkeyed TabsPage keeps its tabs when a page goes in below', (
-    tester,
-  ) => movesWithItsTabs(tester, const Root()));
+  testWidgets(
+    'an unkeyed TabsPage keeps its tabs when a page goes in below',
+    (tester) => movesWithItsTabs(tester, const Root()),
+  );
 
   testWidgets('a TabsPage with another key gets new tabs', (tester) async {
     await pumpCounted(tester, const Root(tabsKey: ValueKey('a')));
