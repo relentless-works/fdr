@@ -598,7 +598,12 @@ class FdrRouteInformationProvider extends PlatformRouteInformationProvider {
     if (own) {
       _moveTo(serial, routeInformation.uri);
       return super.didPushRouteInformation(
-        RouteInformation(uri: routeInformation.uri, state: state['h']),
+        RouteInformation(
+          uri: routeInformation.uri,
+          // an entry without non-URL state is restored too: its navigators
+          // had their defaults then (a foreign entry has nothing to restore)
+          state: state['h'] ?? const <String, Object?>{},
+        ),
       );
     }
     // reload, typed URL, OS deep link or another session: start a new shadow

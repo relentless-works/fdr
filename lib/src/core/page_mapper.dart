@@ -400,18 +400,28 @@ final class _PageMapper {
     return tree.isEmpty ? null : tree;
   }
 
+  /// Restores a tree of [historyState]. A state the tree holds nothing for
+  /// had no history state then: if it has some now, it is restored with
+  /// null.
   void restoreHistoryState(Object? tree) {
-    if (tree is! Map) return;
+    final entries = tree is Map ? tree : const <Object?, Object?>{};
     for (final (index, state) in _statesByIndex.indexed) {
-      final entry = tree['$index'];
-      if (state == null || entry is! Map) continue;
-      if (entry['t'] != state.restorationType) continue;
-      if (entry.containsKey('s')) state.restoreHistoryState(entry['s']);
+      if (state == null) continue;
+      final entry = switch (entries['$index']) {
+        final Map<Object?, Object?> entry
+            when entry['t'] == state.restorationType =>
+          entry,
+        _ => const <Object?, Object?>{},
+      };
+      final own = entry['s'];
+      if (own != null || state.historyState != null) {
+        state.restoreHistoryState(own);
+      }
       state._pageMapper.restoreHistoryState(entry['c']);
     }
     for (final (index, host) in _tabsByIndex.indexed) {
-      final entry = tree['$index'];
-      if (host != null && entry is Map) host.restoreHistoryState(entry['b']);
+      final entry = entries['$index'];
+      host?.restoreHistoryState(entry is Map ? entry['b'] : null);
     }
   }
 

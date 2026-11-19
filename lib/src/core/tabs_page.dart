@@ -88,10 +88,12 @@ final class _TabsHost {
     return tabs.every((s) => s == null) ? null : tabs;
   }
 
+  // a tab the state holds nothing for had no history state then
   void restoreHistoryState(Object? state) {
-    if (state is! List) return;
     for (final (i, tab) in _tabs.indexed) {
-      if (i < state.length) tab.restoreHistoryState(state[i]);
+      tab.restoreHistoryState(
+        state is List && i < state.length ? state[i] : null,
+      );
     }
   }
 

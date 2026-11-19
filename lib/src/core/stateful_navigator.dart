@@ -96,6 +96,9 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   /// bucket; JSON primitives only (null, bool, num, String, List, Map).
   Object? get historyState => null;
 
+  /// Restores what [historyState] returned when the entry was written, on
+  /// browser back and forward, reloads and state restoration. Null, when it
+  /// returned null then but returns a state now, stands for the default.
   void restoreHistoryState(Object? state) {}
 
   /// Tag under which [historyState] is stored; override with a stable string
