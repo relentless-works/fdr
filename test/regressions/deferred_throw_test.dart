@@ -82,6 +82,103 @@ class RootState extends StatefulNavigatorState<Root, RR> {
   }
 }
 
+// two navigators whose setState waits for the update of a third (Poker);
+// the rebuild of the first one throws
+class Throws extends StatefulNavigator<Never> {
+  const Throws();
+  @override
+  ThrowsState createState() => ThrowsState();
+}
+
+class ThrowsState extends StatefulNavigatorState<Throws, Never> {
+  static late ThrowsState latest;
+  bool fail = false;
+
+  @override
+  void initState() {
+    super.initState();
+    latest = this;
+  }
+
+  @override
+  List<NavEntry<Never>> build() {
+    if (fail) {
+      fail = false;
+      throw StateError('deferred build boom');
+    }
+    return const [];
+  }
+}
+
+class Counts extends StatefulNavigator<Never> {
+  const Counts();
+  @override
+  CountsState createState() => CountsState();
+}
+
+class CountsState extends StatefulNavigatorState<Counts, Never> {
+  static late CountsState latest;
+  static final builds = <int>[];
+  int n = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    latest = this;
+  }
+
+  @override
+  List<NavEntry<Never>> build() {
+    builds.add(n);
+    return [NavPage(child: Text('counts $n'))];
+  }
+}
+
+class Poker extends StatefulNavigator<Never> {
+  const Poker();
+  @override
+  PokerState createState() => PokerState();
+}
+
+class PokerState extends StatefulNavigatorState<Poker, Never> {
+  static late PokerState latest;
+  bool poke = false;
+  int count = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    latest = this;
+  }
+
+  @override
+  List<NavEntry<Never>> build() {
+    if (poke) {
+      poke = false;
+      // both wait for this update
+      ThrowsState.latest.setState(() => ThrowsState.latest.fail = true);
+      CountsState.latest.setState(() => CountsState.latest.n = 1);
+    }
+    return const [];
+  }
+}
+
+class Trio extends StatefulNavigator<Never> {
+  const Trio();
+  @override
+  TrioState createState() => TrioState();
+}
+
+class TrioState extends StatefulNavigatorState<Trio, Never> {
+  @override
+  List<NavEntry<Never>> build() => const [
+    NavPage(child: Text('home')),
+    Throws(),
+    Counts(),
+    Poker(),
+  ];
+}
+
 Future<FdrRouter<RR>> start(WidgetTester tester) async {
   tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
   addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
@@ -128,5 +225,31 @@ void main() {
     expect(router.currentUrl, '/', reason: 'stale queued redirect to /c ran');
     expect(find.text('C'), findsNothing);
     expect(find.text('A 1', skipOffstage: false), findsOneWidget);
+  });
+
+  testWidgets('a deferred rebuild that throws does not hold back the other '
+      'deferred rebuilds', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: DeclarativeNavigator(navigator: Trio())),
+    );
+    await tester.pumpAndSettle();
+    CountsState.builds.clear();
+
+    Object? thrown;
+    try {
+      PokerState.latest.setState(() => PokerState.latest.poke = true);
+    } catch (e) {
+      thrown = e;
+    }
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(thrown, isStateError);
+    expect(CountsState.builds, [1]);
+    expect(find.text('counts 1'), findsOneWidget);
+
+    // an unrelated update, long after, has nothing left to rebuild
+    PokerState.latest.setState(() => PokerState.latest.count++);
+    await tester.pumpAndSettle();
+    expect(CountsState.builds, [1]);
   });
 }

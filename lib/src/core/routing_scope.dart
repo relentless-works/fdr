@@ -77,13 +77,31 @@ final class RoutingScope {
     // the passes of these rebuilds end here too
     if (_settling) return;
     _settling = true;
+    // One that throws does not hold back the others, which would then
+    // rebuild after the next, unrelated update: the first error is thrown
+    // once all are done, later ones are reported.
+    (Object, StackTrace)? first;
     try {
       while (_deferred.isNotEmpty) {
         final state = _deferred.removeAt(0);
-        if (state._mounted) state._rebuild();
+        if (!state._mounted) continue;
+        if (first == null) {
+          try {
+            state._rebuild();
+          } on Object catch (error, stack) {
+            first = (error, stack);
+          }
+        } else {
+          _PageMapper._guarded(state._rebuild);
+        }
       }
     } finally {
       _settling = false;
+    }
+    if (first != null) {
+      // as in [_abandon]: also what the rebuilds after the throw asked for
+      _queuedOpen = null;
+      Error.throwWithStackTrace(first.$1, first.$2);
     }
   }
 
