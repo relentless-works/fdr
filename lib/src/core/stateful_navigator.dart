@@ -79,10 +79,16 @@ abstract class StatefulNavigatorState<N extends StatefulNavigator<R>, R>
   /// [open] and state restoration, before the next build. Only this
   /// navigator's own state is set here; for a child navigator, store the
   /// child's part of the route and pass it as [NestedNavigator.route].
+  ///
+  /// A navigator that receives routes overrides it without calling
+  /// `super.applyRoute`: the base implementation only asserts that it was
+  /// overridden.
   void applyRoute(R route) {
     assert(
       false,
-      '$runtimeType received a route ($route) but does not override applyRoute',
+      '$runtimeType received a route ($route) but does not override '
+      'applyRoute, or its applyRoute calls super.applyRoute, which only '
+      'reports a missing override and must not be called.',
     );
   }
 
