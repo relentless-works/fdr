@@ -144,9 +144,15 @@ final class _PageMapper {
     }
     _tabsByIndex = tabs;
 
+    if (_owner is KeepsFirstPage && pages.isNotEmpty) {
+      pages[0] = pages[0].inSlot(_owner, _firstPage);
+    }
+
     route = _topRoute(pages);
     _pages.value = pages;
   }
+
+  static const _firstPage = 'first page';
 
   // disposes a state created in a pass that then threw
   void _discard(_AnyState state) {

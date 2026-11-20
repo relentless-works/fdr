@@ -34,9 +34,10 @@ List<KeyedPage> keyPages(
     } else if (explicit != null) {
       key = explicit;
     } else {
-      final kind = (page.owner, page.identity);
+      final identity = page.slot ?? page.identity;
+      final kind = (page.owner, identity);
       final n = seenAbove.update(kind, (c) => c + 1, ifAbsent: () => 0);
-      key = _RouteLessKey(below, page.owner, page.identity, n);
+      key = _RouteLessKey(below, page.owner, identity, n);
     }
     result.add((key, page));
   }
@@ -62,6 +63,7 @@ final class _RouteLessKey extends LocalKey {
   final Object? owner;
 
   /// [FlatPage.identity]: the kind of entry and its child's type and key.
+  /// For a page that stands for one page of [owner], its [FlatPage.slot].
   final Object? identity;
 
   /// Index among the pages equal in the above, from the bottom.

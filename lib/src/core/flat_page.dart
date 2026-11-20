@@ -19,6 +19,7 @@ final class FlatPage {
     this.nestedPages,
     this.identity,
     this.owner,
+    this.slot,
   }) : _builder = builder; // ignore: prefer_initializing_formals
 
   final FlatPageBuilder _builder;
@@ -45,8 +46,13 @@ final class FlatPage {
   /// has its route or `key:` after its `onPop`.
   final Object? identity;
 
-  /// The navigator state (or host) whose build list the page is from.
+  /// The navigator state (or host) whose build list the page is from, or
+  /// the one that gave it its [slot].
   final Object? owner;
+
+  /// Set for a page that stands for one page of [owner] whatever it shows:
+  /// part of the key of a page without a route in place of [identity].
+  final Object? slot;
 
   /// [forceCanPop] is set for the bottom page: `Navigator.maybePop` then
   /// bubbles (Android back leaves the app) instead of being vetoed, while a
@@ -82,6 +88,7 @@ final class FlatPage {
     nestedPages: nestedPages,
     identity: identity,
     owner: owner,
+    slot: slot,
   );
 
   FlatPage withRoute(Object? route) => FlatPage(
@@ -93,5 +100,27 @@ final class FlatPage {
     nestedPages: nestedPages,
     identity: identity,
     owner: owner,
+    slot: slot,
+  );
+
+  /// The page as the page [slot] of [owner], for its key without a route.
+  FlatPage inSlot(Object owner, Object slot) => FlatPage(
+    builder: _builder,
+    onPop: onPop,
+    route: route,
+    key: key,
+    keyBase: keyBase,
+    nestedPages: nestedPages,
+    identity: identity,
+    owner: owner,
+    slot: slot,
   );
 }
+
+/// Implemented by a navigator state whose first page is one page in every
+/// build, whichever navigator builds it and whatever its child is: the
+/// loading page of a `FutureNavigator`, its error page and the first page of
+/// the loaded child. Without a route, that page is then keyed as the first
+/// page of this state, so it is updated in place like a routed page whose
+/// path stays. Not exported from the package.
+abstract interface class KeepsFirstPage {}

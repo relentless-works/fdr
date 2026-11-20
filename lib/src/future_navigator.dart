@@ -92,7 +92,8 @@ class FutureNavigator<T, R> extends StatefulNavigator<R> {
 }
 
 class _FutureNavigatorState<T, R>
-    extends StatefulNavigatorState<FutureNavigator<T, R>, R> {
+    extends StatefulNavigatorState<FutureNavigator<T, R>, R>
+    implements KeepsFirstPage {
   late T _data;
   bool _hasData = false;
   // whether _data came from load: initialData is not released
