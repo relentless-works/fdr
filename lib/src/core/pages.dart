@@ -3,14 +3,14 @@ part of 'core.dart';
 /// The Flutter page behind [NavPage] and [TabsPage].
 ///
 /// An adaptive page chooses its route when the Navigator creates it, from the
-/// platform of the surrounding [Theme]: a Cupertino route (with swipe back)
-/// on iOS and macOS, a Material route elsewhere. On the web it is always the
-/// Material route, so the app's `pageTransitionsTheme` decides the
-/// transition.
+/// platform of the surrounding [Theme] (material_ui's, which falls back to
+/// `defaultTargetPlatform`): a Cupertino route (with swipe back) on iOS and
+/// macOS, a Material route elsewhere. On the web it is always the Material
+/// route, so the app's `pageTransitionsTheme` decides the transition.
 ///
 /// Both routes forward [canPop] to `canPop` and `impliesAppBarDismissal`, so
 /// the `AppBar` and `CupertinoNavigationBar` back buttons follow the pop
-/// contract; Flutter's own page routes ignore `Page.canPop` there.
+/// contract; `MaterialPage` and `CupertinoPage` ignore `Page.canPop` there.
 class _NavPage extends Page<Object?> {
   const _NavPage({
     super.key,
@@ -141,8 +141,8 @@ class _CupertinoRoute extends PageRoute<Object?>
       super.impliesAppBarDismissal && _page.canPop;
 }
 
-/// The Flutter page behind [DialogPage]: Material's dialog route, also
-/// without a `MaterialApp` above it.
+/// The Flutter page behind [DialogPage]: material_ui's dialog route, also
+/// without material_ui's `MaterialApp` above it.
 class _DialogPage extends Page<Object?> {
   const _DialogPage({
     super.key,

@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // History state is restored right after the route is applied. Below a
 // FutureNavigator that is loading, the navigators it was written for do not

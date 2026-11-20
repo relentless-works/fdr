@@ -1,8 +1,8 @@
 // TODO(tp): Move goldens in here so implementation can be shared with demo gallery?
 import 'package:fdr_example/main.dart';
 import 'package:fdr_example/src/examples/dynamic_pop_navigator.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 final _gallery = find.text('Example selection');
 

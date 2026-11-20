@@ -1,7 +1,7 @@
 import 'package:fdr/fdr.dart';
 import 'package:fdr_example/url_routing/shop.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   const loadTime = Duration(milliseconds: 600);

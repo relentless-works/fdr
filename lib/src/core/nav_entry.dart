@@ -21,10 +21,10 @@ enum _PageStyle { adaptive, material, cupertino }
 /// cannot be popped.
 ///
 /// `NavPage()` uses a Cupertino route (swipe back) on iOS and macOS and a
-/// Material route elsewhere, picked from the surrounding [Theme]'s platform;
-/// on the web it is always the Material route, so the app's
-/// `pageTransitionsTheme` decides. [NavPage.material] and [NavPage.cupertino]
-/// pick one explicitly.
+/// Material route elsewhere, picked from the platform of the surrounding
+/// [Theme] (material_ui's, `defaultTargetPlatform` without one); on the web
+/// it is always the Material route, so the app's `pageTransitionsTheme`
+/// decides. [NavPage.material] and [NavPage.cupertino] pick one explicitly.
 final class NavPage<R> implements NavEntry<R> {
   const NavPage({
     this.key,

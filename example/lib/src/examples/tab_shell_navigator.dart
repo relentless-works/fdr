@@ -1,7 +1,7 @@
 import 'package:fdr/fdr.dart';
 import 'package:fdr_example/src/examples/dynamic_pop_navigator.dart';
 import 'package:fdr_example/src/examples/list_detail_navigator.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Two tabs behind a persistent bottom bar; each tab keeps its own stack.
 class TabShellNavigator extends StatefulNavigator<Never> {

@@ -12,6 +12,9 @@ When used in combination with proper state modelling as the basis, this allows f
 A navigator's `build` returns its pages from its state, like a widget's `build`:
 
 ```dart
+import 'package:fdr/fdr.dart';
+import 'package:material_ui/material_ui.dart';
+
 class OrdersNavigatorState
     extends StatefulNavigatorState<OrdersNavigator, Never> {
   int? selected;
@@ -29,6 +32,8 @@ class OrdersNavigatorState
 
 MaterialApp(home: DeclarativeNavigator(navigator: OrdersNavigator()));
 ```
+
+fdr builds on material_ui and cupertino_ui, which replace the deprecated `package:flutter/material.dart` and `cupertino.dart`: `NavPage` and `DialogPage` follow material_ui's `Theme` and localizations.
 
 ## URL routing
 

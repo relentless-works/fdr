@@ -8,7 +8,7 @@
 import 'dart:async';
 
 import 'package:fdr_example/url_routing/shop.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:web/web.dart' as web;
 
 final _router = createShopRouter(

@@ -1,9 +1,16 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoRouteTransitionMixin;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart'
+    show
+        DialogRoute,
+        MaterialLocalizations,
+        MaterialRouteTransitionMixin,
+        Theme;
 import 'package:url_launcher/link.dart';
 
 import '../routing/url.dart';

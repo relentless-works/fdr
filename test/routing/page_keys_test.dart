@@ -1,6 +1,6 @@
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // A routed page is keyed by its printed path without the query: a query
 // change updates the page in place, another path is a new page, and a

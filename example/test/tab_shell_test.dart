@@ -1,8 +1,8 @@
 import 'package:fdr/fdr.dart';
 import 'package:fdr_example/src/examples/list_detail_navigator.dart';
 import 'package:fdr_example/src/examples/tab_shell_navigator.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   testWidgets('tabs keep their stacks behind a persistent bar', (tester) async {

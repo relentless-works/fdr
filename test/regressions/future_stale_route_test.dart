@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // The route a FutureNavigator was given is handed to its child once. A child
 // created later (a reload whose data the builder turns into another

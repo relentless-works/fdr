@@ -2,12 +2,12 @@
 
 import 'dart:io';
 
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fdr/fdr.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_toolkit/golden_toolkit.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   const size = Size(375, 600);
@@ -47,10 +47,16 @@ void main() {
     await tester.pumpWidgetBuilder(
       DeclarativeNavigator(navigator: _Navigator()),
       surfaceSize: size,
+      // golden_toolkit's default wrapper is a MaterialApp of the deprecated
+      // package:flutter/material, whose localizations material_ui's AppBar
+      // does not see; this is the same app from material_ui
       wrapper: platform == TargetPlatform.iOS
           ? (child) =>
                 CupertinoApp(home: child, debugShowCheckedModeBanner: false)
-          : null,
+          : (child) => MaterialApp(
+              home: Material(child: child),
+              debugShowCheckedModeBanner: false,
+            ),
     );
   }
 

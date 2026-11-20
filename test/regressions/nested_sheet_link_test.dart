@@ -1,6 +1,6 @@
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // Links in sheets, dialogs and menus opened from a page of a child navigator
 // resolve like links in that page, also those of the child's route type.

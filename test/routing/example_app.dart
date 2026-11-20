@@ -3,7 +3,7 @@
 // type with fromUrl/toUrl for its own level; a parent route contains the
 // child's.
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // --- routes ---------------------------------------------------------------
 

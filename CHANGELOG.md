@@ -12,8 +12,8 @@
 * Add `Url` and `NotFound`. A segment is an `int` in canonical form within ±(2^53 − 1), on every platform; `rest(n)` past the end throws `NotFound`; parsing resolves dot segments, reads percent-encoding that is not UTF-8 as Latin-1 and ignores the fragment; a parsed `Url` cannot be changed; `Url`s that print the same path and query values are equal
 * A URL that does not parse completely shows its longest prefix that does, with a not-found page on top, at that URL (printed canonically). A route from the platform whose `applyRoute` or `build` throws is reported, and the address bar shows what the app shows
 * Add `open` on navigator states and `FdrRouter.open` for typed navigation, also from outside the navigator tree (e.g. push notifications). An `open` during an update (a redirect in `applyRoute`, `initState` or `build`) runs after it; its replace does not replace the entry a link or `setState` came from, and more than 5 redirects in a row are reported as a loop. A route opened before the router starts wins over the platform's initial route and over a restored one
-* Add `NavPage`, which picks a Material or Cupertino route from the Theme platform when the route is created (Material on the web, following the app's `pageTransitionsTheme`); `NavPage.material` and `NavPage.cupertino` choose one. A page the state removes during an iOS swipe back finishes its exit
-* Add `DialogPage`, Material's dialog route without a URL; its child, `onPop` and barrier follow rebuilds
+* Add `NavPage`, which picks a Material or Cupertino route from the platform of material_ui's `Theme` when the route is created (Material on the web, following the app's `pageTransitionsTheme`); `NavPage.material` and `NavPage.cupertino` choose one. A page the state removes during an iOS swipe back finishes its exit
+* Add `DialogPage`, material_ui's dialog route without a URL; its child, `onPop` and barrier follow rebuilds
 * Add `CustomPage` for any other Flutter `Page` (bottom sheets, custom transitions) with the pop contract; its builder has to pass `key` and `canPop` on (asserted in debug)
 * Add `NestedNavigator`: a child navigator with its own route type, placed in the parent's by `at`; its `route` is applied when it is created and when an incoming route addresses it. A needed `at` that is missing is a `FlutterError` in every build mode
 * Add `TabsPage`: a persistent page with one nested navigator per tab, each keeping its own stack, matched by key like a navigator; the URL follows the active tab, and at the active tab's root Android back goes to the owner, even if another tab could pop
@@ -23,7 +23,7 @@
 * Add `historyState`, `restoreHistoryState` and `restorationType` on navigator states: non-URL state kept in the browser history entry and restored on back and forward, after a reload and after process death (`null` when the entry had none), also into navigators created later, such as below a loading `FutureNavigator`. A state that is not JSON, or that cannot be restored, is reported with its navigator
 * Add `watch` and `listen` on navigator states to rebuild when app state owned elsewhere changes (a `Listenable`, a bloc's stream); both return a callback that cancels, and `listen` takes `onError`. Add `mounted`
 * Debug checks: a `toUrl` whose URL parses to another URL, a query parameter printed by two levels, a `fromUrl` that does not return the root's route type, and a navigator tree without pages. A `createState()` that returns another navigator's state is a `FlutterError` naming both
-* Depend on `url_launcher` and `web`
+* Depend on `material_ui` and `cupertino_ui` instead of the deprecated `package:flutter/material.dart` and `cupertino.dart`, and on `url_launcher` and `web`. In an app still on the deprecated libraries, `NavPage` picks its route from `defaultTargetPlatform` and `DialogPage` labels its barrier "Dismiss"
 * Require Flutter 3.47 and Dart 3.13
 * The published package no longer contains the tests and their goldens
 

@@ -1,6 +1,6 @@
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // What setState() and open() after dispose() do once `assert(mounted)` is
 // compiled out (release, profile). `flutter test` cannot disable asserts,

@@ -1,6 +1,6 @@
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // a build with statements: a sync* body instead of a list literal
 class _Steps extends StatefulNavigator<Never> {

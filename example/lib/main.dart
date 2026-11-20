@@ -1,6 +1,6 @@
 import 'package:fdr/fdr.dart';
 import 'package:fdr_example/src/examples/example_selection_navigator.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   runApp(const MyApp());

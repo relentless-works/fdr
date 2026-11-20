@@ -4,7 +4,7 @@
 import 'dart:async';
 
 import 'package:fdr/fdr.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // --- models and a fake API whose loads the tests complete by hand ----------
 

@@ -1,7 +1,7 @@
 // The URL routing demo; best tried in a browser:
 //   flutter run -d chrome -t lib/main_url_routing.dart
 import 'package:fdr_example/url_routing/shop.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 final _router = createShopRouter(ShopApi());
 

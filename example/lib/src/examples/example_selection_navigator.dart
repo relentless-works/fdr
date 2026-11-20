@@ -1,3 +1,4 @@
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:fdr/fdr.dart';
 import 'package:fdr_example/src/examples/dynamic_pop_navigator.dart';
 import 'package:fdr_example/src/examples/hot_reloadable_stateful_navigator.dart';
@@ -5,7 +6,6 @@ import 'package:fdr_example/src/examples/hot_reloadable_stateless_navigator.dart
 import 'package:fdr_example/src/examples/list_detail_navigator.dart';
 import 'package:fdr_example/src/examples/overlay_portal_navigator.dart';
 import 'package:fdr_example/src/examples/tab_shell_navigator.dart';
-import 'package:flutter/cupertino.dart';
 
 class ExampleSelectionNavigator extends StatefulNavigator<Never> {
   @override
