@@ -4,40 +4,84 @@ typedef KeyedPage = (LocalKey key, FlatPage page);
 
 /// Keys a flattened page list so the Navigator pairs old and new pages by
 /// identity instead of position: explicit keys win; a routed page is keyed by
-/// [routeKey] of its route (`#n` for repeats); a page without a route by the
-/// key of the routed page below it plus its offset (`+n`). A printed path
-/// has neither `#` nor `+`, so these keys cannot be the key of a route.
+/// [routeKey] of its route (`#n` for repeats, a printed path has no `#`); a
+/// page without a route gets a [_RouteLessKey], which matches it like an
+/// unkeyed widget among the pages above the same routed page.
 List<KeyedPage> keyPages(
   List<FlatPage> pages,
   String? Function(Object route) routeKey,
 ) {
   final seen = <String, int>{};
+  final seenAbove = <(Object?, Object?), int>{};
   final result = <KeyedPage>[];
-  var below = '';
-  var offset = 0;
+  LocalKey? below;
   for (final page in pages) {
     final route = page.route;
     final base = page.keyBase ?? (route == null ? null : routeKey(route));
     final explicit = page.key;
-    final String derived;
-    if (explicit != null) {
-      // pages above an explicitly keyed page (e.g. a shell) stay stable
+    final LocalKey key;
+    if (base != null) {
+      if (explicit != null) {
+        key = explicit;
+      } else {
+        final n = seen.update(base, (c) => c + 1, ifAbsent: () => 0);
+        key = ValueKey(n == 0 ? 'fdr:$base' : 'fdr:$base#$n');
+      }
+      // also for an explicit key: the pages above e.g. a shell stay stable
       // while its route changes
-      below = '$explicit';
-      offset = 0;
-      derived = below;
-    } else if (base != null) {
-      final n = seen.update(base, (c) => c + 1, ifAbsent: () => 0);
-      below = n == 0 ? base : '$base#$n';
-      offset = 0;
-      derived = below;
+      below = key;
+      seenAbove.clear();
+    } else if (explicit != null) {
+      key = explicit;
     } else {
-      offset++;
-      derived = '$below+$offset';
+      final kind = (page.owner, page.identity);
+      final n = seenAbove.update(kind, (c) => c + 1, ifAbsent: () => 0);
+      key = _RouteLessKey(below, page.owner, page.identity, n);
     }
-    result.add((page.key ?? ValueKey('fdr:$derived'), page));
+    result.add((key, page));
   }
   return result;
+}
+
+/// The key of a page without a route and without a key of its own: what
+/// `Element.updateChildren` would match an unkeyed widget by, among the pages
+/// above the same routed page. So a page that comes or goes below it does not
+/// hand its Route and widget state to another page; pages that are equal in
+/// all of this are matched in order.
+///
+/// Compared by the types themselves, not their names, which a release build
+/// for the web minifies.
+final class _RouteLessKey extends LocalKey {
+  const _RouteLessKey(this.below, this.owner, this.identity, this.occurrence);
+
+  /// Key of the nearest routed page below, `null` without one.
+  final LocalKey? below;
+
+  /// The navigator state (or host) that built the page: a page is not taken
+  /// for one of another navigator, whose state it does not own.
+  final Object? owner;
+
+  /// [FlatPage.identity]: the kind of entry and its child's type and key.
+  final Object? identity;
+
+  /// Index among the pages equal in the above, from the bottom.
+  final int occurrence;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _RouteLessKey &&
+      other.below == below &&
+      identical(other.owner, owner) &&
+      other.identity == identity &&
+      other.occurrence == occurrence;
+
+  @override
+  int get hashCode =>
+      Object.hash(below, identityHashCode(owner), identity, occurrence);
+
+  @override
+  String toString() =>
+      '[fdr: $identity#$occurrence of ${owner.runtimeType} above $below]';
 }
 
 /// The pop contract, applied where the SDK reports exactly the imperative

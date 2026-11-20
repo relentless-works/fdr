@@ -191,6 +191,7 @@ final class _PageMapper {
               route: entry.route,
               key: entry.key,
               identity: (CustomPage, entry.child.runtimeType, entry.child.key),
+              owner: _owner,
             ),
           );
 
@@ -289,7 +290,13 @@ final class _PageMapper {
       onPop: entry.onPop,
       route: entry.route,
       key: entry.key,
-      identity: (NavPage, entry.child.runtimeType, entry.child.key),
+      identity: (
+        NavPage,
+        entry._style,
+        entry.child.runtimeType,
+        entry.child.key,
+      ),
+      owner: _owner,
     );
   }
 
@@ -305,6 +312,7 @@ final class _PageMapper {
       onPop: entry.onPop,
       key: entry.key,
       identity: (DialogPage, entry.child.runtimeType, entry.child.key),
+      owner: _owner,
     );
   }
 

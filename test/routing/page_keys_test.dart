@@ -4,7 +4,8 @@ import 'package:material_ui/material_ui.dart';
 
 // A routed page is keyed by its printed path without the query: a query
 // change updates the page in place, another path is a new page, and a
-// repeated path gets `#n` (doc section 11).
+// repeated path gets `#n`. A page without a route belongs to the routed page
+// below it (doc section 11).
 
 sealed class KeyRoute extends NavRoute {
   const KeyRoute();
@@ -48,6 +49,7 @@ class PagesState extends StatefulNavigatorState<Pages, KeyRoute> {
   String sort = 'date';
   int? item;
   bool twice = false;
+  bool help = false;
 
   @override
   void initState() {
@@ -82,6 +84,11 @@ class PagesState extends StatefulNavigatorState<Pages, KeyRoute> {
           child: Probe('again $id'),
         ),
     ],
+    if (help)
+      DialogPage(
+        onPop: () => setState(() => help = false),
+        child: const Probe('help'),
+      ),
   ];
 }
 
@@ -194,4 +201,75 @@ void main() {
       const ValueKey('fdr:/1'),
     ]);
   });
+
+  testWidgets('a page without a route stays while the query below changes', (
+    tester,
+  ) async {
+    final router = await start(tester);
+    change((s) => s.help = true);
+    await tester.pumpAndSettle();
+    expect(router.currentUrl, '/');
+    final keys = pageKeys(tester);
+    expect(keys.first, const ValueKey('fdr:/'));
+    // readable in an error message
+    expect('${keys.last}', contains('DialogPage'));
+    expect('${keys.last}', contains('fdr:/'));
+    final help = probe(tester, 'help');
+    final route = routeOf(tester, 'help');
+
+    change((s) => s.sort = 'name');
+    await tester.pump();
+    expect(router.currentUrl, '/?sort=name');
+    expect(pageKeys(tester), keys);
+    expect(probe(tester, 'help'), same(help));
+    expect(routeOf(tester, 'help'), same(route));
+    expect(route.animation!.status, AnimationStatus.completed);
+  });
+
+  testWidgets('a page without a route is new above another routed page', (
+    tester,
+  ) async {
+    final router = await start(tester);
+    change((s) {
+      s.item = 1;
+      s.help = true;
+    });
+    await tester.pumpAndSettle();
+    final keys = pageKeys(tester);
+    final help = probe(tester, 'help');
+    final route = routeOf(tester, 'help');
+
+    change((s) => s.item = 2);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(router.currentUrl, '/2');
+    expect(pageKeys(tester).last, isNot(keys.last));
+    expect(route.isActive, isFalse);
+    await tester.pumpAndSettle();
+    expect(routeOf(tester, 'help'), isNot(same(route)));
+    expect(probe(tester, 'help'), isNot(same(help)));
+  });
+
+  testWidgets(
+    'a routed page that comes in below a page without a route renews it',
+    (tester) async {
+      await start(tester);
+      change((s) {
+        s.item = 1;
+        s.help = true;
+      });
+      await tester.pumpAndSettle();
+      final keys = pageKeys(tester);
+      final help = probe(tester, 'help');
+
+      // the repeat of /1 comes in below the dialog, which is then above it
+      change((s) => s.twice = true);
+      await tester.pumpAndSettle();
+      expect(pageKeys(tester).sublist(0, 2), keys.sublist(0, 2));
+      expect(pageKeys(tester)[2], const ValueKey('fdr:/1#1'));
+      expect(pageKeys(tester).toSet(), hasLength(4));
+      expect(probe(tester, 'help'), isNot(same(help)));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
