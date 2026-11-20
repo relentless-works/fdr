@@ -66,15 +66,24 @@ final class NavHost<R> {
 
   List<KeyedPage> keyed() => keyPages(_mapper.pages.value, routeKey);
 
+  // rebuilds the Navigator from the same pages, which puts back a page that
+  // was removed from it without the state knowing
+  final _shownAgain = ValueNotifier(0);
+
+  void _showAgain() {
+    if (!_disposed) _shownAgain.value++;
+  }
+
   Widget navigator({Key? key}) {
     // the scope also covers routes pushed outside the pages that do not
     // capture the themes of a page (see _NavScope): their links resolve at
     // the root
     return _NavScope(
       target: _target,
-      child: ValueListenableBuilder(
-        valueListenable: _mapper.pages,
-        builder: (context, pages, _) {
+      child: ListenableBuilder(
+        listenable: Listenable.merge([_mapper.pages, _shownAgain]),
+        builder: (context, _) {
+          final pages = _mapper.pages.value;
           if (pages.isEmpty) {
             // Flutter's Navigator fails on an empty list, without a word
             // on where it came from
@@ -95,13 +104,15 @@ final class NavHost<R> {
             }());
             return const SizedBox.shrink();
           }
-          return Navigator(
+          return _PageNavigator(
             key: key,
             pages: [
               for (final (i, (key, page)) in keyPages(pages, routeKey).indexed)
                 page.buildPage(defaultKey: key, forceCanPop: i == 0),
             ],
-            onDidRemovePage: (page) => applyPopContract(page, keyed),
+            current: keyed,
+            onDidRemovePage: (page) =>
+                applyPopContract(page, keyed, _showAgain),
           );
         },
       ),
@@ -111,5 +122,6 @@ final class NavHost<R> {
   void dispose() {
     _disposed = true;
     _mapper.dispose();
+    _shownAgain.dispose();
   }
 }

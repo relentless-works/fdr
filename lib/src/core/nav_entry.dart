@@ -17,8 +17,9 @@ enum _PageStyle { adaptive, material, cupertino }
 /// route has no URL of its own; the URL stays at the page below.
 ///
 /// [onPop] changes the state so that the page is gone on the next build; it
-/// runs for the back button, system back and swipe back. Without it the page
-/// cannot be popped.
+/// runs for the back button, system back, swipe back and `Navigator.pop`.
+/// Without it the page cannot be popped: back does nothing, and
+/// `Navigator.pop` throws.
 ///
 /// `NavPage()` uses a Cupertino route (swipe back) on iOS and macOS and a
 /// Material route elsewhere, picked from the platform of the surrounding
@@ -76,7 +77,8 @@ final class NavPage<R> implements NavEntry<R> {
 /// reload or a shared link does not show it.
 ///
 /// Barrier taps, the back button and `Navigator.pop(context)` (e.g. an OK
-/// button in the dialog) all go through [onPop].
+/// button in the dialog) all go through [onPop]. Without it the first two do
+/// nothing and `Navigator.pop` throws.
 final class DialogPage implements NavEntry<Never> {
   const DialogPage({
     this.key,

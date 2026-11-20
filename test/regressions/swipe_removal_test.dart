@@ -65,7 +65,9 @@ Future<int> swipe(
   await gesture.moveBy(Offset(distance - 50, 0));
   await tester.pump(const Duration(milliseconds: 16));
   if (removeAt != null) {
-    final navigator = tester.state<NavigatorState>(find.byType(Navigator).last);
+    final navigator = tester.state<NavigatorState>(
+      find.bySubtype<Navigator>().last,
+    );
     expect(navigator.userGestureInProgress, isTrue);
     _NavState.latest.setState(() => _NavState.latest.detail = false);
     await tester.pump();

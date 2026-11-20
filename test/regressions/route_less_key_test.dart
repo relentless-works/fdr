@@ -71,7 +71,9 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router.config));
     await tester.pumpAndSettle();
 
-    final navigator = tester.widget<Navigator>(find.byType(Navigator).first);
+    final navigator = tester.widget<Navigator>(
+      find.bySubtype<Navigator>().first,
+    );
     final keys = navigator.pages.map((page) => page.key).toList();
     expect(keys.toSet(), hasLength(3), reason: 'page keys $keys');
 

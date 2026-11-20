@@ -154,6 +154,11 @@ class _TabNavigatorState extends State<_TabNavigator> {
   List<KeyedPage> _keyed() =>
       keyPages(widget.mapper.pages.value, widget.mapper.routeKey);
 
+  // builds the Navigator again from the same pages
+  void _showAgain() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     // An inactive tab's Navigator must not tell the ancestors that it can
@@ -180,7 +185,7 @@ class _TabNavigatorState extends State<_TabNavigator> {
                 if (pages.isEmpty) return const SizedBox.shrink();
                 return _NavScope(
                   target: widget.mapper._owner,
-                  child: Navigator(
+                  child: _PageNavigator(
                     key: _navigatorKey,
                     pages: [
                       for (final (i, (key, page)) in keyPages(
@@ -189,7 +194,9 @@ class _TabNavigatorState extends State<_TabNavigator> {
                       ).indexed)
                         page.buildPage(defaultKey: key, forceCanPop: i == 0),
                     ],
-                    onDidRemovePage: (page) => applyPopContract(page, _keyed),
+                    current: _keyed,
+                    onDidRemovePage: (page) =>
+                        applyPopContract(page, _keyed, _showAgain),
                   ),
                 );
               },

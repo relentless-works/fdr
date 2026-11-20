@@ -529,21 +529,19 @@ void main() {
       platformLog.where((c) => c.method == 'SystemNavigator.pop'),
       isEmpty,
     );
-    // Navigator.pop bypasses canPop; the library reports it instead of
-    // crashing on a null callback (fdr 0.0.5); the route stays gone until the
-    // next build, where the unchanged state re-pushes the page
-    router.delegate.navigatorKey.currentState!.pop();
-    await tester.pumpAndSettle();
+    // Navigator.pop bypasses canPop: it throws, and the page stays
     expect(
-      tester.takeException(),
-      isA<FlutterError>().having(
-        (e) => e.message,
-        'message',
-        contains('popped imperatively'),
+      router.delegate.navigatorKey.currentState!.pop,
+      throwsA(
+        isA<FlutterError>().having(
+          (e) => e.message,
+          'message',
+          contains('has no onPop'),
+        ),
       ),
     );
-    expect(find.text('top'), findsNothing);
-    expect(find.text('bottom'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('top'), findsOneWidget);
   });
 
   testWidgets('a state-driven removal (Done button) is a pop, not a push', (

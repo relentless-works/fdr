@@ -114,7 +114,7 @@ class _TickingState extends State<Ticking> with SingleTickerProviderStateMixin {
 
 Finder tabNavigator(String name) => find.ancestor(
   of: find.text(name, skipOffstage: false),
-  matching: find.byType(Navigator, skipOffstage: false),
+  matching: find.bySubtype<Navigator>(skipOffstage: false),
 );
 
 void main() {

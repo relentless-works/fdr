@@ -90,19 +90,27 @@ final class _RouteLessKey extends LocalKey {
 /// here, so `onPop` cannot run twice. [current] is evaluated lazily against
 /// the latest state, so a pop that races an unrelated rebuild still finds its
 /// page by key.
+///
+/// A page without `onPop` gets here only by a removal [_PageNavigatorState]
+/// does not refuse (`removeRouteBelow`, a `pushReplacement` on it): it is
+/// reported, and [showAgain] has to rebuild the Navigator from the pages the
+/// state builds, which puts the page back.
 void applyPopContract(
   Page<Object?> removed,
   List<KeyedPage> Function() current,
+  VoidCallback showAgain,
 ) {
   final match = current().where((e) => e.$1 == removed.key).firstOrNull;
   if (match == null) return; // the state already removed it
   final onPop = match.$2.onPop;
   if (onPop == null) {
     _reportPopMisuse(
-      'Page ${removed.key} was popped imperatively (Navigator.pop) but has '
-      'onPop == null. Pages are removed by changing the state that builds '
-      'them; the page is shown again on the next build.',
+      'Page ${removed.key} was removed from its Navigator imperatively but '
+      'has no onPop. Pages are removed by changing the state that builds '
+      'them; the page is shown again.',
     );
+    // not in the Navigator's locked history update, which this runs in
+    scheduleMicrotask(showAgain);
     return;
   }
   onPop();
@@ -131,4 +139,71 @@ void _reportPopMisuse(String message) {
       context: ErrorDescription('while handling onDidRemovePage'),
     ),
   );
+}
+
+/// The Navigator of a keyed page list. `Navigator.pop` and
+/// `Navigator.removeRoute` of a page without `onPop` throw to their caller
+/// and leave the page where it is.
+///
+/// `Navigator.pop` ignores `Page.canPop`, which only stops `maybePop` (the
+/// back button, system back) and the back gestures. Refusing it later is not
+/// possible: `onDidRemovePage` runs once the route is on its way out, and a
+/// route that refuses in `didPop` makes `popUntil` loop forever.
+class _PageNavigator extends Navigator {
+  const _PageNavigator({
+    super.key,
+    required super.pages,
+    required super.onDidRemovePage,
+    required this.current,
+  });
+
+  /// The pages the state builds now, which may be newer than [pages].
+  final List<KeyedPage> Function() current;
+
+  @override
+  NavigatorState createState() => _PageNavigatorState();
+}
+
+class _PageNavigatorState extends NavigatorState {
+  @override
+  void pop<T extends Object?>([T? result]) {
+    Route<Object?>? top;
+    popUntil((route) {
+      top = route;
+      return true;
+    });
+    // with a local history entry (an open drawer) the pop closes that
+    if (top case final top? when !top.willHandlePopInternally) {
+      _checkHasOnPop(top, 'Navigator.pop');
+    }
+    super.pop(result);
+  }
+
+  @override
+  void removeRoute<T extends Object?>(Route<T> route, [T? result]) {
+    _checkHasOnPop(route, 'Navigator.removeRoute');
+    super.removeRoute(route, result);
+  }
+
+  void _checkHasOnPop(Route<Object?> route, String call) {
+    final page = route.settings;
+    // a route pushed on top of the pages is the app's to pop
+    if (page is! Page<Object?>) return;
+    final current = (widget as _PageNavigator).current();
+    final match = current.where((e) => e.$1 == page.key).firstOrNull;
+    // not in the list: the state already removed it, and the route is leaving
+    if (match == null || match.$2.onPop != null) return;
+    throw FlutterError.fromParts([
+      ErrorSummary('$call was called on page ${page.key}, which has no onPop.'),
+      ErrorDescription(
+        'A page is removed by changing the state that builds it. $call '
+        'removes the page from the Navigator only, so the page has to say '
+        'in onPop how the state changes. The page stays as it is.',
+      ),
+      ErrorHint(
+        'Pass onPop to the page and remove it from build() there, or change '
+        'the state instead of calling $call.',
+      ),
+    ]);
+  }
 }

@@ -118,7 +118,8 @@ Future<FdrRouter<KeyRoute>> start(WidgetTester tester) async {
 }
 
 List<Key?> pageKeys(WidgetTester tester) => [
-  for (final page in tester.widget<Navigator>(find.byType(Navigator)).pages)
+  for (final page
+      in tester.widget<Navigator>(find.bySubtype<Navigator>()).pages)
     page.key,
 ];
 
