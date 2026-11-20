@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:cupertino_ui/cupertino_ui.dart'
-    show CupertinoRouteTransitionMixin;
+    show CupertinoPageTransition, CupertinoRouteTransitionMixin;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';

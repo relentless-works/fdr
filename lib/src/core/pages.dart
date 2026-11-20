@@ -124,6 +124,11 @@ class _CupertinoRoute extends PageRoute<Object?>
   @override
   String? get title => _page.title;
 
+  // as cupertino_ui's page-based route: lets a Material page below follow
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition =>
+      fullscreenDialog ? null : CupertinoPageTransition.delegatedTransition;
+
   @override
   bool get maintainState => _page.maintainState;
 
