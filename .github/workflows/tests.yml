@@ -24,6 +24,14 @@ jobs:
         with:
           flutter-version: "3.50.0"
 
+      - name: Show the machine and the SDK's architecture
+        run: |
+          uname -m
+          sysctl -n hw.ncpu hw.memsize
+          flutter --version
+          file "$(dirname "$(which flutter)")/cache/dart-sdk/bin/dart"
+          file "$(dirname "$(which flutter)")/cache/artifacts/engine/darwin-x64/flutter_tester"
+
       - name: Install dependencies
         run: flutter pub get --enforce-lockfile
 
