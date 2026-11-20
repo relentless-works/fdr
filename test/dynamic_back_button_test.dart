@@ -31,13 +31,7 @@ void main() {
     debugDefaultTargetPlatformOverride = platform;
     // reset also when the test fails, which would otherwise fail on it too
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    try {
-      await body(tester);
-    } finally {
-      // in the body too: Flutter before 3.50 checks the foundation debug
-      // variables at the end of the body, before the tear-downs run
-      debugDefaultTargetPlatformOverride = null;
-    }
+    await body(tester);
   };
 
   Future<void> pumpNavigator(
