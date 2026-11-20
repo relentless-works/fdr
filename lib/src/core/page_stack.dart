@@ -149,6 +149,12 @@ void _reportPopMisuse(String message) {
 /// back button, system back) and the back gestures. Refusing it later is not
 /// possible: `onDidRemovePage` runs once the route is on its way out, and a
 /// route that refuses in `didPop` makes `popUntil` loop forever.
+///
+/// Flutter's own gesture handlers pop the route after they moved it out
+/// themselves (the end of a swipe or predictive back whose page lost `onPop`
+/// on the way, a bottom sheet dragged down). A throw there leaves the route
+/// off screen and the Navigator without input, so that pop is refused
+/// without one and the route's transition runs forward again.
 class _PageNavigator extends Navigator {
   const _PageNavigator({
     super.key,
@@ -165,45 +171,114 @@ class _PageNavigator extends Navigator {
 }
 
 class _PageNavigatorState extends NavigatorState {
+  bool _inPopUntil = false;
+
+  @override
+  void popUntil(RoutePredicate predicate) {
+    final outer = _inPopUntil;
+    _inPopUntil = true;
+    try {
+      super.popUntil(predicate);
+    } finally {
+      _inPopUntil = outer;
+    }
+  }
+
   @override
   void pop<T extends Object?>([T? result]) {
     Route<Object?>? top;
-    popUntil((route) {
+    super.popUntil((route) {
       top = route;
       return true;
     });
     // with a local history entry (an open drawer) the pop closes that
     if (top case final top? when !top.willHandlePopInternally) {
-      _checkHasOnPop(top, 'Navigator.pop');
+      final page = _pageWithoutOnPop(top);
+      if (page != null) {
+        // popUntil pops until the route is gone, so it needs the throw
+        if (!_inPopUntil && _showAgain(top, page)) return;
+        throw _noOnPop(page, 'Navigator.pop');
+      }
     }
     super.pop(result);
   }
 
   @override
   void removeRoute<T extends Object?>(Route<T> route, [T? result]) {
-    _checkHasOnPop(route, 'Navigator.removeRoute');
+    final page = _pageWithoutOnPop(route);
+    if (page != null) throw _noOnPop(page, 'Navigator.removeRoute');
     super.removeRoute(route, result);
   }
 
-  void _checkHasOnPop(Route<Object?> route, String call) {
+  /// The page of [route], if the state builds it without `onPop`.
+  Page<Object?>? _pageWithoutOnPop(Route<Object?> route) {
     final page = route.settings;
     // a route pushed on top of the pages is the app's to pop
-    if (page is! Page<Object?>) return;
+    if (page is! Page<Object?>) return null;
     final current = (widget as _PageNavigator).current();
     final match = current.where((e) => e.$1 == page.key).firstOrNull;
     // not in the list: the state already removed it, and the route is leaving
-    if (match == null || match.$2.onPop != null) return;
-    throw FlutterError.fromParts([
-      ErrorSummary('$call was called on page ${page.key}, which has no onPop.'),
-      ErrorDescription(
-        'A page is removed by changing the state that builds it. $call '
-        'removes the page from the Navigator only, so the page has to say '
-        'in onPop how the state changes. The page stays as it is.',
-      ),
-      ErrorHint(
-        'Pass onPop to the page and remove it from build() there, or change '
-        'the state instead of calling $call.',
-      ),
-    ]);
+    if (match == null || match.$2.onPop != null) return null;
+    return page;
   }
+
+  /// Whether [route] was being moved out by a gesture, in which case it is
+  /// brought back.
+  bool _showAgain(Route<Object?> route, Page<Object?> page) {
+    if (route is! TransitionRoute<Object?>) return false;
+    // ignore: invalid_use_of_protected_member
+    final controller = route.controller;
+    if (controller == null) return false;
+    if (userGestureInProgress) {
+      // a back gesture starts only on a page with onPop, so the page lost it
+      // on the way: no error. the handler may still animate the route after
+      // this returns, so it comes back once the gesture is over
+      final gesture = userGestureInProgressNotifier;
+      void ended() {
+        if (gesture.value) return;
+        gesture.removeListener(ended);
+        if (route.isActive) controller.forward();
+      }
+
+      gesture.addListener(ended);
+      return true;
+    }
+    if (!controller.isDismissed &&
+        controller.status != AnimationStatus.reverse) {
+      return false;
+    }
+    // a bottom sheet that was dragged down: it should not be draggable
+    controller.forward();
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: _noOnPop(
+          page,
+          'Navigator.pop',
+          'The route was closing by itself (a bottom sheet dragged down) and '
+              'is shown again; a page without onPop must not offer that '
+              '(enableDrag: canPop).',
+        ),
+        library: 'fdr',
+        context: ErrorDescription('while a route popped itself'),
+      ),
+    );
+    return true;
+  }
+
+  FlutterError _noOnPop(Page<Object?> page, String call, [String? outcome]) =>
+      FlutterError.fromParts([
+        ErrorSummary(
+          '$call was called on page ${page.key}, which has no onPop.',
+        ),
+        ErrorDescription(
+          'A page is removed by changing the state that builds it. $call '
+          'removes the page from the Navigator only, so the page has to say '
+          'in onPop how the state changes. '
+          '${outcome ?? 'The page stays as it is.'}',
+        ),
+        ErrorHint(
+          'Pass onPop to the page and remove it from build() there, or change '
+          'the state instead of calling $call.',
+        ),
+      ]);
 }

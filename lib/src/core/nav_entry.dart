@@ -185,6 +185,10 @@ typedef CustomPageBuilder = Page<Object?> Function(
 /// shows an `AppBar` back button, which does nothing: Flutter's page routes
 /// ignore `Page.canPop` for it. [NavPage] does not have this problem.
 ///
+/// A route that pops itself, like a bottom sheet that is dragged down, has
+/// to offer that only when `canPop` is true (`enableDrag: canPop`). Without
+/// [onPop] the sheet comes back up and an error is reported.
+///
 /// ```dart
 /// CustomPage(
 ///   onPop: () => setState(() => filtering = false),
