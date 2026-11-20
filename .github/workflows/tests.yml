@@ -20,17 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: "3.50.0"
-
-      - name: Show the machine and the SDK's architecture
-        run: |
-          uname -m
-          sysctl -n hw.ncpu hw.memsize
-          flutter --version
-          file "$(dirname "$(which flutter)")/cache/dart-sdk/bin/dart"
-          file "$(dirname "$(which flutter)")/cache/artifacts/engine/darwin-x64/flutter_tester"
+          channel: stable
 
       - name: Install dependencies
         run: flutter pub get --enforce-lockfile
@@ -71,9 +64,10 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: "3.50.0"
+          channel: stable
 
       - name: Install dependencies
         run: flutter pub get --enforce-lockfile
