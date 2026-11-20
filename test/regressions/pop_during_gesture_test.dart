@@ -1,4 +1,5 @@
-import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPage;
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoPage, CupertinoSheetRoute;
 import 'package:fdr/fdr.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -8,7 +9,8 @@ import 'package:material_ui/material_ui.dart';
 // into those handlers: the swipe never ended (the page parked off screen, the
 // Navigator took no input), and a dragged sheet stayed as an invisible route
 // over the app. The pop is refused without a throw there and the route comes
-// back (doc section 11).
+// back (doc section 11). Only the route the gesture moves is treated so: a pop
+// of another page by the app meanwhile throws as always.
 
 class Probe extends StatefulWidget {
   const Probe(this.label, {super.key});
@@ -36,6 +38,19 @@ class SheetPage extends Page<Object?> {
       );
 }
 
+class CupertinoSheetPage extends Page<Object?> {
+  const CupertinoSheetPage({super.key, super.canPop, required this.child});
+  final Widget child;
+
+  @override
+  Route<Object?> createRoute(BuildContext context) =>
+      CupertinoSheetRoute<Object?>(
+        settings: this,
+        scrollableBuilder: (context, controller) =>
+            (ModalRoute.settingsOf(context)! as CupertinoSheetPage).child,
+      );
+}
+
 typedef Top = NavEntry<Never> Function(VoidCallback? onPop);
 
 class Nav extends StatefulNavigator<Never> {
@@ -49,6 +64,7 @@ class NavState extends StatefulNavigatorState<Nav, Never> {
   static late NavState latest;
   bool shown = true;
   bool canPop = true;
+  bool saving = false;
   int pops = 0;
 
   @override
@@ -65,6 +81,11 @@ class NavState extends StatefulNavigatorState<Nav, Never> {
   /// What a form does while it saves.
   void disablePop() => setState(() => canPop = false);
 
+  /// The state removes the page itself (a timer, a server event).
+  void remove() => setState(() => shown = false);
+
+  void showSaving() => setState(() => saving = true);
+
   @override
   List<NavEntry<Never>> build() => [
     NavPage(
@@ -73,6 +94,7 @@ class NavState extends StatefulNavigatorState<Nav, Never> {
       ),
     ),
     if (shown) navigator.top(canPop ? pop : null),
+    if (saving) const DialogPage(child: Text('saving')),
   ];
 }
 
@@ -208,6 +230,105 @@ void main() {
     );
     await gesture.up();
     await expectStays(tester, 'detail', state, route);
+  });
+
+  final throwsNoOnPop = throwsA(
+    isA<FlutterError>().having(
+      (e) => e.message,
+      'message',
+      allOf(contains('Navigator.pop was called on page'), contains('no onPop')),
+    ),
+  );
+
+  Future<TestGesture> startSwipe(WidgetTester tester) async {
+    final gesture = await tester.startGesture(const Offset(5, 300));
+    await gesture.moveBy(const Offset(50, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(150, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(navigatorOf(tester).userGestureInProgress, isTrue);
+    return gesture;
+  }
+
+  testWidgets('Navigator.pop of the page below a swiped page that the state '
+      'removed throws', (tester) async {
+    await show(tester, swiped.values.first);
+    final gesture = await startSwipe(tester);
+    NavState.latest.remove();
+    await tester.pump();
+    // the top page is home now, which has no onPop
+    expect(() => navigatorOf(tester).pop(), throwsNoOnPop);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(navigatorOf(tester).userGestureInProgress, isFalse);
+    expect(find.text('detail'), findsNothing);
+    await tester.tap(find.text('home'));
+    expect(taps, 1);
+    expect(NavState.latest.pops, 0);
+  });
+
+  testWidgets('Navigator.pop of a page without onPop shown over a swiped page '
+      'throws', (tester) async {
+    await show(tester, swiped.values.first);
+    final state = probe(tester);
+    final gesture = await startSwipe(tester);
+    NavState.latest.showSaving();
+    await tester.pump();
+    expect(() => navigatorOf(tester).pop(), throwsNoOnPop);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(navigatorOf(tester).userGestureInProgress, isFalse);
+    expect(find.text('saving').hitTestable(), findsOneWidget);
+    expect(probe(tester), same(state));
+    expect(tester.getCenter(find.text('detail')).dx, 400);
+    expect(NavState.latest.pops, 0);
+  });
+
+  group('a Cupertino sheet page', () {
+    NavEntry<Never> sheet(VoidCallback? onPop) => CustomPage(
+      onPop: onPop,
+      builder: (key, canPop, child) =>
+          CupertinoSheetPage(key: key, canPop: canPop, child: child),
+      child: const Probe('sheet'),
+    );
+
+    // its drag is a user gesture that starts whatever Page.canPop says
+    testWidgets('without onPop that is dragged down comes back, reported', (
+      tester,
+    ) async {
+      await show(tester, (_) => sheet(null));
+      final state = probe(tester);
+      final route = routeOf(tester, 'sheet');
+      await tester.dragFrom(const Offset(400, 100), const Offset(0, 450));
+      expect(
+        tester.takeException(),
+        isA<FlutterError>().having(
+          (e) => e.message,
+          'message',
+          allOf(
+            contains('Navigator.pop was called on page'),
+            contains('has no onPop'),
+            contains('shown again'),
+            contains('enableDrag: canPop'),
+          ),
+        ),
+      );
+      await expectStays(tester, 'sheet', state, route);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with onPop that is dragged down runs it once', (tester) async {
+      await show(tester, sheet);
+      await tester.dragFrom(const Offset(400, 100), const Offset(0, 450));
+      await tester.pumpAndSettle();
+      expect(NavState.latest.pops, 1);
+      expect(find.text('sheet'), findsNothing);
+      await tester.tap(find.text('home'));
+      expect(taps, 1);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('a bottom sheet page', () {

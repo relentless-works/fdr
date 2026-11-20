@@ -152,9 +152,11 @@ void _reportPopMisuse(String message) {
 ///
 /// Flutter's own gesture handlers pop the route after they moved it out
 /// themselves (the end of a swipe or predictive back whose page lost `onPop`
-/// on the way, a bottom sheet dragged down). A throw there leaves the route
-/// off screen and the Navigator without input, so that pop is refused
-/// without one and the route's transition runs forward again.
+/// on the way, a sheet dragged down). A throw there leaves the route off
+/// screen and the Navigator without input, so that pop is refused without
+/// one and the route's transition runs forward again. Only the route the
+/// gesture moves gets this: the pop of any other page still throws while a
+/// gesture is in progress.
 class _PageNavigator extends Navigator {
   const _PageNavigator({
     super.key,
@@ -184,15 +186,41 @@ class _PageNavigatorState extends NavigatorState {
     }
   }
 
+  // The route the gesture in progress moves, and whether its page had no
+  // onPop when the gesture started.
+  Route<Object?>? _gestureRoute;
+  bool _gestureWithoutOnPop = false;
+
   @override
-  void pop<T extends Object?>([T? result]) {
+  void didStartUserGesture() {
+    if (!userGestureInProgress) {
+      // the top route, which is the one the observers are told as well
+      final route = _top();
+      _gestureRoute = route;
+      _gestureWithoutOnPop = route != null && _pageWithoutOnPop(route) != null;
+    }
+    super.didStartUserGesture();
+  }
+
+  @override
+  void didStopUserGesture() {
+    super.didStopUserGesture();
+    if (!userGestureInProgress) _gestureRoute = null;
+  }
+
+  Route<Object?>? _top() {
     Route<Object?>? top;
     super.popUntil((route) {
       top = route;
       return true;
     });
+    return top;
+  }
+
+  @override
+  void pop<T extends Object?>([T? result]) {
     // with a local history entry (an open drawer) the pop closes that
-    if (top case final top? when !top.willHandlePopInternally) {
+    if (_top() case final top? when !top.willHandlePopInternally) {
       final page = _pageWithoutOnPop(top);
       if (page != null) {
         // popUntil pops until the route is gone, so it needs the throw
@@ -229,18 +257,25 @@ class _PageNavigatorState extends NavigatorState {
     // ignore: invalid_use_of_protected_member
     final controller = route.controller;
     if (controller == null) return false;
-    if (userGestureInProgress) {
-      // a back gesture starts only on a page with onPop, so the page lost it
-      // on the way: no error. the handler may still animate the route after
-      // this returns, so it comes back once the gesture is over
+    // Flutter's handlers pop only the route their gesture moves, while it is
+    // the top one. A pop of that route by the app meanwhile cannot be told
+    // from theirs and is refused the same way.
+    if (userGestureInProgress && identical(route, _gestureRoute)) {
+      // the handler may still animate the route after this returns, so it
+      // comes back once the gesture is over
       final gesture = userGestureInProgressNotifier;
       void ended() {
         if (gesture.value) return;
         gesture.removeListener(ended);
+        // not a page the state removed in the meantime, which is leaving
         if (route.isActive) controller.forward();
       }
 
       gesture.addListener(ended);
+      // a back gesture starts only on a page with onPop, so there the page
+      // lost it on the way: no error. a sheet that is dragged although its
+      // page has none (CupertinoSheetRoute) should not be draggable
+      if (_gestureWithoutOnPop) _reportClosing(page);
       return true;
     }
     if (!controller.isDismissed &&
@@ -249,20 +284,24 @@ class _PageNavigatorState extends NavigatorState {
     }
     // a bottom sheet that was dragged down: it should not be draggable
     controller.forward();
+    _reportClosing(page);
+    return true;
+  }
+
+  void _reportClosing(Page<Object?> page) {
     FlutterError.reportError(
       FlutterErrorDetails(
         exception: _noOnPop(
           page,
           'Navigator.pop',
-          'The route was closing by itself (a bottom sheet dragged down) and '
-              'is shown again; a page without onPop must not offer that '
+          'The route was closing by itself (a sheet dragged down) and is '
+              'shown again; a page without onPop must not offer that '
               '(enableDrag: canPop).',
         ),
         library: 'fdr',
         context: ErrorDescription('while a route popped itself'),
       ),
     );
-    return true;
   }
 
   FlutterError _noOnPop(Page<Object?> page, String call, [String? outcome]) =>
