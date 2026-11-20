@@ -4,7 +4,8 @@ import 'package:fdr/fdr.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:url_launcher/link.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 import 'example_app.dart';
 
@@ -941,9 +942,20 @@ void main() {
   });
 
   group('links', () {
-    Link linkOf(WidgetTester tester, String key) => tester.widget<Link>(
-      find.ancestor(of: find.byKey(Key(key)), matching: find.byType(Link)),
-    );
+    setUp(() {
+      final platform = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = _WebLinks();
+      addTearDown(() => UrlLauncherPlatform.instance = platform);
+    });
+
+    LinkInfo linkOf(WidgetTester tester, String key) => tester
+        .widget<_Anchor>(
+          find.ancestor(
+            of: find.byKey(Key(key)),
+            matching: find.byType(_Anchor),
+          ),
+        )
+        .link;
 
     testWidgets('a link prints its URL through the parents and opens it', (
       tester,
@@ -1004,7 +1016,7 @@ void main() {
       await tester.tap(find.byKey(const Key('profile')));
       await tester.pumpAndSettle();
       expect(find.text('Profile body'), findsOneWidget);
-      expect(find.byType(Link), findsNothing);
+      expect(find.byType(_Anchor), findsNothing);
     });
   });
 
@@ -1067,6 +1079,21 @@ void main() {
 }
 
 void _ignore(HomeTab _) {}
+
+// stands in for url_launcher_web, whose delegate builds an anchor around the
+// link
+final class _WebLinks extends UrlLauncherPlatform {
+  @override
+  LinkDelegate get linkDelegate => _Anchor.new;
+}
+
+class _Anchor extends StatelessWidget {
+  const _Anchor(this.link);
+  final LinkInfo link;
+
+  @override
+  Widget build(BuildContext context) => link.builder(context, () async {});
+}
 
 // a page with a link of a route type no navigator above it has
 class _LinkElsewhere extends StatelessNavigator<Never> {

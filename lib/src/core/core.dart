@@ -11,7 +11,9 @@ import 'package:material_ui/material_ui.dart'
         MaterialLocalizations,
         MaterialRouteTransitionMixin,
         Theme;
-import 'package:url_launcher/link.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart'
+    show UrlLauncherPlatform;
 
 import '../routing/url.dart';
 import 'external_href.dart'

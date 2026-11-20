@@ -30,34 +30,57 @@ class RouteLink extends StatelessWidget {
     // lifted again on tap: the parents' `at` may have changed since
     void open() => routing.open(target._toRoot(route), HistoryAction.auto);
     final href = routing.hrefOf?.call(target._toRoot(route));
-    if (href == null) return builder(context, open);
-    return Link(
-      // absolute, so url_launcher never pushes it to the framework itself
-      // (which would bypass fdr's history); a late followLink then opens a
-      // new tab instead of navigating in the app
-      uri: Uri.parse(externalHref(href)),
-      builder: (context, followLink) => builder(context, () {
-        if (!kIsWeb || followLink == null) return open();
-        final keyboard = HardwareKeyboard.instance;
-        final tap = linkTap(
-          defaultTargetPlatform,
-          meta: keyboard.isMetaPressed,
-          control: keyboard.isControlPressed,
-          shift: keyboard.isShiftPressed,
-        );
-        switch (tap) {
-          // the browser opens a new tab or window, if Link tells it that the
-          // tap followed the link
-          case LinkTap.newTab:
-            unawaited(followLink());
-          case LinkTap.contextMenu:
-            return;
-          case LinkTap.open:
-            open();
-        }
-      }),
+    // the anchor comes from url_launcher_web's delegate; no other platform
+    // has one, and there the link is the builder alone
+    final delegate = UrlLauncherPlatform.instance.linkDelegate;
+    if (href == null || delegate == null) return builder(context, open);
+    return delegate(
+      _LinkInfo(
+        // absolute, so url_launcher_web never pushes it to the framework
+        // itself (which would bypass fdr's history); a late followLink then
+        // opens a new tab instead of navigating in the app
+        uri: Uri.parse(externalHref(href)),
+        builder: (context, followLink) => builder(context, () {
+          if (!kIsWeb || followLink == null) return open();
+          final keyboard = HardwareKeyboard.instance;
+          final tap = linkTap(
+            defaultTargetPlatform,
+            meta: keyboard.isMetaPressed,
+            control: keyboard.isControlPressed,
+            shift: keyboard.isShiftPressed,
+          );
+          switch (tap) {
+            // the browser opens a new tab or window, if url_launcher_web
+            // hears that the tap followed the link
+            case LinkTap.newTab:
+              unawaited(followLink());
+            case LinkTap.contextMenu:
+              return;
+            case LinkTap.open:
+              open();
+          }
+        }),
+      ),
     );
   }
+}
+
+/// What url_launcher_web's delegate builds the anchor from, where
+/// url_launcher's `Link` passes itself.
+class _LinkInfo implements LinkInfo {
+  const _LinkInfo({required this.uri, required this.builder});
+
+  @override
+  final Uri uri;
+
+  @override
+  final LinkWidgetBuilder builder;
+
+  @override
+  LinkTarget get target => LinkTarget.defaultTarget;
+
+  @override
+  bool get isDisabled => false;
 }
 
 /// What a tap on a [RouteLink] does on the web.
