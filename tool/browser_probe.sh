@@ -5,7 +5,7 @@
 # and history length after every step.
 #
 # Uses the `flutter` on PATH; set FLUTTER to use another SDK, e.g.
-# `FLUTTER=~/fvm/versions/3.47.5/bin/flutter tool/browser_probe.sh` or
+# `FLUTTER=~/fvm/versions/3.50.0/bin/flutter tool/browser_probe.sh` or
 # `fvm exec tool/browser_probe.sh`.
 set -euo pipefail
 

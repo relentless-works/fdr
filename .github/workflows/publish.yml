@@ -31,7 +31,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.47.5 # the version tests.yml runs
+          flutter-version: 3.50.0 # the version tests.yml runs
 
       # `--force` below publishes despite warnings; the dry run fails on them
       - name: Validate package

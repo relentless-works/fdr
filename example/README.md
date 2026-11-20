@@ -1,6 +1,6 @@
 # fdr examples
 
-Demos of [fdr](../README.md). Like the package, they need Flutter 3.47 or newer. Run the commands in this directory.
+Demos of [fdr](../README.md). Like the package, they need Flutter 3.50 or newer. Run the commands in this directory.
 
 ## Small examples: `lib/main.dart`
 

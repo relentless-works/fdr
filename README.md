@@ -33,7 +33,7 @@ class OrdersNavigatorState
 MaterialApp(home: DeclarativeNavigator(navigator: OrdersNavigator()));
 ```
 
-fdr builds on material_ui and cupertino_ui, which replace the deprecated `package:flutter/material.dart` and `cupertino.dart`: `NavPage` and `DialogPage` follow material_ui's `Theme` and localizations.
+fdr needs Flutter 3.50 and builds on material_ui and cupertino_ui, which replace the deprecated `package:flutter/material.dart` and `cupertino.dart`: `NavPage` and `DialogPage` follow material_ui's `Theme` and localizations.
 
 ## URL routing
 

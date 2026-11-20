@@ -24,7 +24,7 @@
 * Add `watch` and `listen` on navigator states to rebuild when app state owned elsewhere changes (a `Listenable`, a bloc's stream); both return a callback that cancels, and `listen` takes `onError`. Add `mounted`
 * Debug checks: a `toUrl` whose URL parses to another URL, a query parameter printed by two levels, a `fromUrl` that does not return the root's route type, and a navigator tree without pages. A `createState()` that returns another navigator's state is a `FlutterError` naming both
 * Depend on `material_ui` and `cupertino_ui` instead of the deprecated `package:flutter/material.dart` and `cupertino.dart`, and on `url_launcher` and `web`. In an app still on the deprecated libraries, `NavPage` picks its route from `defaultTargetPlatform` and `DialogPage` labels its barrier "Dismiss"
-* Require Flutter 3.47 and Dart 3.13
+* Require Flutter 3.50 and Dart 3.14
 * The published package no longer contains the tests and their goldens
 
 ## 0.0.5

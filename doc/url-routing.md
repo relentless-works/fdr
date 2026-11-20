@@ -6,7 +6,7 @@ Status: implemented in `lib/`. Checked by:
 - compile-time checks (`dart run tool/check_typing.dart`);
 - a scripted run of the URL demo in headless Chrome against the real engine history (`tool/browser_probe.sh`; `FLUTTER` and `CHROME` pick the SDK and the browser).
 
-CI runs all three on Flutter 3.47.5, also before a tag is published. Tests and tools are in the repository, not in the published package. The runnable demo is `example/lib/main_url_routing.dart` (`flutter run -d chrome -t lib/main_url_routing.dart` in `example/`).
+CI runs all three on Flutter 3.50.0, also before a tag is published. Tests and tools are in the repository, not in the published package. The runnable demo is `example/lib/main_url_routing.dart` (`flutter run -d chrome -t lib/main_url_routing.dart` in `example/`).
 
 ## 1. The idea
 
@@ -326,7 +326,7 @@ The fallback when traversal is impossible is Flutter's push, configurable to rep
 
 Sequences the probe does not drive (a reload on an earlier entry followed by forward and a push, two backs without settling in between, a back followed at once by an `open`) are tested against a model of the browser history (`test/regressions/browser_history_test.dart`).
 
-**Engine facts this rests on (Flutter 3.47.5).**
+**Engine facts this rests on (Flutter 3.50.0).**
 
 - Browser back and forward send the same `pushRouteInformation{location, state}`.
 - `RouteInformation.state` must be JSON. It round-trips through `history.state` on back and forward, but after a reload only the path arrives (flutter/flutter#108697). The provider reads the rest through `BrowserHistory.currentState` (section 13).
@@ -411,7 +411,7 @@ Entries after the current one are learned when the browser delivers them.
 22. **url_launcher.** Real links come from url_launcher's `Link`, which adds five native plugins to every app, although off the web `Link` only calls the builder. A plain click relies on url_launcher_web 2.4.1 or later to stop the browser's own navigation, which `url_launcher: ^6.3.2` does not guarantee. Options: depend on `url_launcher_web` and `url_launcher_platform_interface` instead (no native code), or an inlined `<a>` platform view (estimated at about 100 lines on the PR), which has to pair the browser's click with the Flutter tap that led to it, as url_launcher does, also for clicks through the semantics tree.
 23. **Links on the web.** Link semantics come only from url_launcher, on the web under a router, where the builder's result is merged into one semantics node and placed in a `Stack`; a builder that returns `Expanded`, `Flexible` or `Positioned` therefore fails only there. Options: one semantics wrapper on every path (it would merge a nested button into the link on mobile too), a plain `Semantics(link: true)` off the web (no effect around a `TextButton`), or document that the builder returns one tappable box. Separately, url_launcher's anchor sits above whatever Flutter paints over the link, so hover, the context menu and middle-click may reach a link under a dialog (from url_launcher's source; not checked in a browser).
 24. **Apps on the deprecated libraries.** fdr builds on material_ui and cupertino_ui, whose `Theme`, `MaterialLocalizations` and route classes are other classes than those of the deprecated `package:flutter/material.dart` and `cupertino.dart`. Under an app still on those, nothing fails, but fdr does not see the app's theme and localizations: `NavPage` picks its route from `defaultTargetPlatform`, and its Material route ignores the app's `pageTransitionsTheme`; `DialogPage` labels its barrier "Dismiss"; and a `CupertinoNavigationBar` from `cupertino.dart` shows neither the page's `title` nor the previous page's as its back label. The back buttons still follow the pop contract (`test/regressions/legacy_material_test.dart`). Until the app migrates, `NavPage.material` and `NavPage.cupertino` choose the route. Separately, fdr depends on both packages, so a Cupertino-only app gets material_ui too, and with it `flutter_localizations` and `intl`.
-25. **Flutter version.** CI and publishing pin Flutter 3.47.5, where `flutter analyze` is clean. On 3.50, analyze fails on the deprecated `material.dart` and `cupertino.dart` imports (info level), and the committed lockfiles do not resolve with `--enforce-lockfile`. Options: develop on 3.47.5 too (a committed `.fvmrc`); move the three pins and both lockfiles to 3.50 together with item 24 or `--no-fatal-infos`; or stop committing the package's lockfile.
+25. **Flutter version.** fdr requires Flutter 3.50 and Dart 3.14. CI, publishing and the committed `.fvmrc` files pin Flutter 3.50.0, and both lockfiles are resolved with it (CI runs `flutter pub get --enforce-lockfile`). Later Flutter releases, and material_ui and cupertino_ui versions other than the locked ones (1.11.1 and 1.1.7), are not tested until the pins move. Options: move the pins with each Flutter release; or add a CI job on the latest stable that resolves without the lockfiles.
 26. **Goldens.** The tests start through golden_toolkit, which is discontinued. Replacing it takes about 40 lines of plain `flutter_test` plus its Roboto font (or regenerated Android goldens), or another package. The goldens run only on macOS and compare exactly outside CI (0.05% on CI).
 
 ## 15. How this design was chosen
