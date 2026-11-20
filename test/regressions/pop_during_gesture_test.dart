@@ -286,6 +286,28 @@ void main() {
     expect(NavState.latest.pops, 0);
   });
 
+  testWidgets('a page refused during a swipe that the state then removes is '
+      'not brought back', (tester) async {
+    await show(tester, swiped.values.first);
+    final gesture = await startSwipe(tester);
+    NavState.latest.disablePop();
+    await tester.pump();
+    // the app's pop of the swiped page is refused like the handler's
+    navigatorOf(tester).pop();
+    NavState.latest.remove();
+    await tester.pump();
+    await gesture.moveBy(const Offset(100, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(navigatorOf(tester).userGestureInProgress, isFalse);
+    expect(find.text('detail', skipOffstage: false), findsNothing);
+    await tester.tap(find.text('home'));
+    expect(taps, 1);
+    expect(NavState.latest.pops, 0);
+  });
+
   group('a Cupertino sheet page', () {
     NavEntry<Never> sheet(VoidCallback? onPop) => CustomPage(
       onPop: onPop,
